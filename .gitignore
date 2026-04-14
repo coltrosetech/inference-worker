@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Env & secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Models & caches (downloaded at runtime, never committed)
+data/
+models/
+cache/
+/workspace/ComfyUI/models/**/*.safetensors
+/workspace/ComfyUI/models/**/*.ckpt
+/workspace/ComfyUI/models/**/*.pt
+/workspace/ComfyUI/models/**/*.bin
+
+# ComfyUI runtime artefacts
+ComfyUI/input/*
+ComfyUI/output/*
+!ComfyUI/input/.gitkeep
+!ComfyUI/output/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker-compose.override.yml
