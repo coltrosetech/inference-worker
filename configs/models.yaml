@@ -1,0 +1,45 @@
+# Phase 1 model manifest. Each entry:
+#   name: human label (also used in logs)
+#   repo: HuggingFace repo id
+#   filename: file to download within the repo
+#   dest: path under $MODELS_PATH where the file lands (keeps ComfyUI's expected layout)
+#   sha256: SHA-256 of the downloaded file (verified; empty string skips)
+#   size_mb: expected size in MB (used for sanity checks + progress)
+#
+# Paths mirror ComfyUI's models/ subfolders so symlinks just work.
+
+models:
+  - name: JuggernautXL v9 Lightning
+    repo: RunDiffusion/Juggernaut-XL-Lightning
+    filename: Juggernaut_X_RunDiffusion_Hyper.safetensors
+    dest: checkpoints/Juggernaut_X_RunDiffusion_Hyper.safetensors
+    sha256: ""
+    size_mb: 6617
+
+  - name: SDXL VAE fp16 fix
+    repo: madebyollin/sdxl-vae-fp16-fix
+    filename: sdxl_vae.safetensors
+    dest: vae/sdxl_vae_fp16_fix.safetensors
+    sha256: ""
+    size_mb: 320
+
+  - name: SDXL LCM LoRA
+    repo: latent-consistency/lcm-lora-sdxl
+    filename: pytorch_lora_weights.safetensors
+    dest: loras/lcm_lora_sdxl.safetensors
+    sha256: ""
+    size_mb: 394
+
+  - name: IP-Adapter Plus SDXL
+    repo: h94/IP-Adapter
+    filename: sdxl_models/ip-adapter-plus_sdxl_vit-h.safetensors
+    dest: ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors
+    sha256: ""
+    size_mb: 851
+
+  - name: CLIP-ViT-H-14 (IP-Adapter encoder)
+    repo: h94/IP-Adapter
+    filename: models/image_encoder/model.safetensors
+    dest: clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors
+    sha256: ""
+    size_mb: 1264
