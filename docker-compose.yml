@@ -1,0 +1,32 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: inference-worker:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${WORKER_PORT:-8000}:8000"
+      - "${METRICS_PORT:-9090}:9090"
+    volumes:
+      - ./data/models:/data/models
+      - ./data/cache:/data/cache
+      - ./data/comfyui:/data/comfyui
+      - ./data/logs:/data/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ipc: host
+    shm_size: 8gb
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+      start_period: 300s
