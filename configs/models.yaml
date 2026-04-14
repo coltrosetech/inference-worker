@@ -9,10 +9,10 @@
 # Paths mirror ComfyUI's models/ subfolders so symlinks just work.
 
 models:
-  - name: JuggernautXL v9 Lightning
+  - name: JuggernautXL Lightning 4-step
     repo: RunDiffusion/Juggernaut-XL-Lightning
-    filename: Juggernaut_X_RunDiffusion_Hyper.safetensors
-    dest: checkpoints/Juggernaut_X_RunDiffusion_Hyper.safetensors
+    filename: Juggernaut_RunDiffusionPhoto2_Lightning_4Steps.safetensors
+    dest: checkpoints/Juggernaut_RunDiffusionPhoto2_Lightning_4Steps.safetensors
     sha256: ""
     size_mb: 6617
 

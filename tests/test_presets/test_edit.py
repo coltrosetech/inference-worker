@@ -35,17 +35,16 @@ def test_edit_inject_patches_prompt_seed_steps_strength_dims():
     paths = InputPaths(input_image="job1_input.png")
     out = preset.inject(tpl, params, paths).to_dict()
 
-    assert find_node(out, "positive_prompt")["widgets_values"][0] == "a dog on a skateboard"
-    assert find_node(out, "negative_prompt")["widgets_values"][0] == "bad anatomy"
+    assert out["positive_prompt"]["inputs"]["text"] == "a dog on a skateboard"
+    assert out["negative_prompt"]["inputs"]["text"] == "bad anatomy"
 
-    sampler = find_node(out, "sampler")["widgets_values"]
-    assert sampler[0] == 42
-    assert sampler[1] == "fixed"
-    assert sampler[2] == 10
-    assert sampler[3] == 2.0
-    assert sampler[6] == 0.6
+    sampler = out["sampler"]["inputs"]
+    assert sampler["seed"] == 42
+    assert sampler["steps"] == 10
+    assert sampler["cfg"] == 2.0
+    assert sampler["denoise"] == 0.6
 
-    assert find_node(out, "input_image")["widgets_values"][0] == "job1_input.png"
+    assert out["input_image"]["inputs"]["image"] == "job1_input.png"
 
 
 def test_edit_seed_random_when_none(monkeypatch):
@@ -55,7 +54,7 @@ def test_edit_seed_random_when_none(monkeypatch):
     params = EditPreset.Parameters(prompt="x", seed=None)
     paths = InputPaths(input_image="a.png")
     out = preset.inject(tpl, params, paths).to_dict()
-    assert find_node(out, "sampler")["widgets_values"][0] == 99999
+    assert out["sampler"]["inputs"]["seed"] == 99999
 
 
 def test_edit_output_extension_and_content_type():

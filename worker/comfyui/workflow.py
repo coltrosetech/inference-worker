@@ -46,3 +46,20 @@ class WorkflowTemplate:
         """Set node['properties'][key] on the node with the given title."""
         node = find_node(self._data, title)
         node.setdefault("properties", {})[key] = value
+
+    # --- API-format (ComfyUI /prompt) helpers ---
+    # In API format, the workflow is a flat {node_id: {class_type, inputs}} dict
+    # keyed by node name. Presets patch inputs via set_input.
+
+    def is_api_format(self) -> bool:
+        """True if top-level keys look like {name: {class_type, inputs}}."""
+        if not isinstance(self._data, dict) or not self._data:
+            return False
+        first = next(iter(self._data.values()))
+        return isinstance(first, dict) and "class_type" in first
+
+    def set_input(self, node_name: str, key: str, value: Any) -> None:
+        """Set inputs[key] on the API-format node with the given name."""
+        if node_name not in self._data:
+            raise KeyError(f"no node named {node_name!r} in workflow")
+        self._data[node_name].setdefault("inputs", {})[key] = value

@@ -37,11 +37,20 @@ class EditPreset(Preset):
     ) -> WorkflowTemplate:
         seed = params.seed if params.seed is not None else random_seed()
 
+        if template.is_api_format():
+            template.set_input("input_image", "image", input_paths.input_image)
+            template.set_input("positive_prompt", "text", params.prompt)
+            template.set_input("negative_prompt", "text", params.negative_prompt)
+            template.set_input("sampler", "seed", seed)
+            template.set_input("sampler", "steps", params.steps)
+            template.set_input("sampler", "cfg", params.cfg)
+            template.set_input("sampler", "denoise", params.strength)
+            return template
+
+        # Legacy full-workflow format (widget-indexed)
         template.set_widget("input_image", 0, input_paths.input_image)
         template.set_widget("positive_prompt", 0, params.prompt)
         template.set_widget("negative_prompt", 0, params.negative_prompt)
-
-        # KSampler widget layout: [seed, seed_mode, steps, cfg, sampler_name, scheduler, denoise]
         template.set_widget("sampler", 0, seed)
         template.set_widget("sampler", 1, "fixed")
         template.set_widget("sampler", 2, params.steps)

@@ -6,6 +6,12 @@ import pytest
 from worker.core.config import Settings, get_settings
 
 
+@pytest.fixture(autouse=True)
+def _isolate_cwd(monkeypatch, tmp_path):
+    """Prevent pydantic-settings from picking up a stray .env in the repo root."""
+    monkeypatch.chdir(tmp_path)
+
+
 def test_settings_defaults(monkeypatch, tmp_path):
     monkeypatch.setenv("WORKER_API_KEY", "k" * 32)
     monkeypatch.setenv("CALLBACK_HMAC_SECRET", "s" * 32)

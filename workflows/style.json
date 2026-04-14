@@ -3,7 +3,7 @@
   "last_link_id": 30,
   "nodes": [
     {"id": 1, "type": "CheckpointLoaderSimple", "title": "checkpoint",
-     "widgets_values": ["Juggernaut_X_RunDiffusion_Hyper.safetensors"]},
+     "widgets_values": ["Juggernaut_RunDiffusionPhoto2_Lightning_4Steps.safetensors"]},
     {"id": 2, "type": "LoraLoader", "title": "lcm_lora",
      "widgets_values": ["lcm_lora_sdxl.safetensors", 1.0, 1.0]},
     {"id": 3, "type": "VAELoader", "title": "vae_loader",

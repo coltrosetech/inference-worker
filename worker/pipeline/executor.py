@@ -206,12 +206,18 @@ class Executor:
     ) -> Path:
         tpl = preset.load_template(self._workflows_dir)
         tpl = preset.inject(tpl, params, input_paths)
-        try:
-            tpl.set_widget("save", 0, job_id)
-        except KeyError:
-            pass
-
-        api_prompt = await self._comfyui.convert_workflow(tpl.to_dict())
+        if tpl.is_api_format():
+            try:
+                tpl.set_input("save", "filename_prefix", job_id)
+            except KeyError:
+                pass
+            api_prompt = tpl.to_dict()
+        else:
+            try:
+                tpl.set_widget("save", 0, job_id)
+            except KeyError:
+                pass
+            api_prompt = await self._comfyui.convert_workflow(tpl.to_dict())
         client_id = new_client_id()
         prompt_id = await self._comfyui.submit_prompt(api_prompt, client_id=client_id)
         self._active_prompt_ids[job_id] = prompt_id
