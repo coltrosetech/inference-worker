@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inference-worker"
+version = "0.1.0"
+description = "Stateless GPU inference worker for image/video generation via ComfyUI"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.32.1",
+    "pydantic==2.10.3",
+    "pydantic-settings==2.7.0",
+    "httpx==0.28.1",
+    "websockets==14.1",
+    "structlog==24.4.0",
+    "prometheus-client==0.21.1",
+    "huggingface-hub==0.27.0",
+    "Pillow==11.0.0",
+    "PyYAML==6.0.2",
+    "pynvml==12.0.0",
+    "ulid-py==1.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.0",
+    "pytest-cov==6.0.0",
+    "respx==0.22.0",
+    "pytest-httpserver==1.1.0",
+    "ruff==0.8.4",
+    "pyright==1.1.391",
+]
+
+[tool.setuptools.packages.find]
+include = ["worker*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC"]
+ignore = ["E501"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "gpu: requires real GPU and ComfyUI (skipped in CI)",
+    "integration: end-to-end tests requiring network and GPU",
+]
+testpaths = ["tests"]
