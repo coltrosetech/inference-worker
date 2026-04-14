@@ -1,0 +1,1 @@
+- [No ComfyUI UI usage — all CLI/terminal](feedback_no_comfyui_ui.md) — user wants every ComfyUI action driven from terminal, never the web UI
