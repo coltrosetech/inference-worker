@@ -15,7 +15,9 @@ dist/
 .mypy_cache/
 
 # Env & secrets
-.env
+# NOTE: .env is intentionally committed in this private repo for convenient
+# cross-instance resume. If the repo ever goes public or gains collaborators,
+# rotate WORKER_API_KEY and CALLBACK_HMAC_SECRET first.
 .env.local
 *.pem
 *.key
