@@ -1,0 +1,13 @@
+{
+  "last_node_id": 5,
+  "last_link_id": 4,
+  "nodes": [
+    {"id": 1, "type": "CLIPTextEncode", "title": "positive_prompt", "widgets_values": ["a cat"]},
+    {"id": 2, "type": "CLIPTextEncode", "title": "negative_prompt", "widgets_values": ["blurry"]},
+    {"id": 3, "type": "KSampler", "title": "sampler", "widgets_values": [0, "randomize", 8, 1.8, "euler", "normal", 1.0]},
+    {"id": 4, "type": "LoadImage", "title": "input_image", "widgets_values": ["placeholder.png", "image"]},
+    {"id": 5, "type": "EmptyLatentImage", "title": "latent_dims", "widgets_values": [1024, 1024, 1]}
+  ],
+  "links": [],
+  "version": 0.4
+}
