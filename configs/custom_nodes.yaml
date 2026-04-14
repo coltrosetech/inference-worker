@@ -1,0 +1,20 @@
+# Phase 1 custom nodes. Each entry:
+#   name: label
+#   repo: git URL (https)
+#   ref: git ref (commit sha, tag, or branch). Pin to sha for reproducibility.
+#   post_install: optional shell command run inside the node directory
+nodes:
+  - name: IPAdapter_plus
+    repo: https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
+    ref: main
+    post_install: "python -m pip install -r requirements.txt || true"
+
+  - name: tooling-nodes
+    repo: https://github.com/Acly/comfyui-tooling-nodes.git
+    ref: main
+    post_install: "python -m pip install -r requirements.txt || true"
+
+  - name: KJNodes
+    repo: https://github.com/kijai/ComfyUI-KJNodes.git
+    ref: main
+    post_install: "python -m pip install -r requirements.txt || true"
