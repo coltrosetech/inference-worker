@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from worker.api import health
+from worker.api import generate, health
 from worker.app_state import AppState
 from worker.core.config import get_settings
 from worker.core.logging import configure_logging, get_logger
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
     configure_logging(level=s.log_level, fmt=s.log_format)
     app = FastAPI(title="Inference Worker", version="0.1.0", lifespan=_lifespan)
     app.include_router(health.router)
+    app.include_router(generate.router)
     return app
 
 
