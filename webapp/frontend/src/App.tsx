@@ -23,6 +23,7 @@ const PRESETS: { value: Preset; label: string; desc: string; needsRef?: boolean;
   { value: "inpaint", label: "inpaint", desc: "SDXL Lightning inpaint — fast, few-step", needsMask: true },
   { value: "inpaint_sdxl", label: "inpaint_sdxl", desc: "JuggernautXL Inpaint v9 — balanced SDXL", needsMask: true },
   { value: "inpaint_realvis", label: "inpaint_realvis", desc: "RealVisXL V4 Inpaint — photorealistic", needsMask: true },
+  { value: "tryon", label: "tryon", desc: "Virtual try-on — upload garment photo, IP-Adapter transfer", needsMask: true, needsRef: true },
   { value: "edit_premium", label: "edit_premium", desc: "FLUX.1-Kontext prompt-driven edit" },
   { value: "inpaint_premium", label: "inpaint_premium", desc: "FLUX.1-Fill-dev — premium (preserves anatomy)", needsMask: true },
   { value: "ltx_video", label: "ltx_video", desc: "LTX-Video img2video (mp4)" },

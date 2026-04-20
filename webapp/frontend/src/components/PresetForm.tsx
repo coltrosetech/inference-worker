@@ -40,6 +40,8 @@ export interface PresetParams {
   // inpaint_premium pose guard
   use_pose_guide?: boolean;
   pose_strength?: number;
+  // tryon (IP-Adapter-driven VTON)
+  reference_weight?: number;
   // ltx_video
   num_frames?: 25 | 49 | 97 | 121;
   fps?: number;
@@ -96,6 +98,17 @@ export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
     skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
     structural_refiner: false,
     refiner_strength: 0.3,
+    auto_mask: true,
+    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
+  },
+  tryon: {
+    prompt: "wearing the reference garment, natural lighting, photorealistic",
+    negative_prompt: "",
+    steps: 25,
+    cfg: 7.0,
+    strength: 0.9,
+    grow_mask_px: 12,
+    reference_weight: 0.9,
     auto_mask: true,
     auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
   },
@@ -331,6 +344,16 @@ export function PresetForm({
         />
       )}
 
+      {preset === "tryon" && (
+        <Range
+          label="reference_weight (garment influence)"
+          value={params.reference_weight}
+          onChange={(v) => update("reference_weight", v)}
+          max={2}
+          step={0.05}
+        />
+      )}
+
       {preset === "controlnet" && (
         <>
           <div className="space-y-1.5">
@@ -362,7 +385,7 @@ export function PresetForm({
         </>
       )}
 
-      {(preset === "inpaint" || preset === "inpaint_sdxl" || preset === "inpaint_realvis" || preset === "inpaint_premium") && (
+      {(preset === "inpaint" || preset === "inpaint_sdxl" || preset === "inpaint_realvis" || preset === "inpaint_premium" || preset === "tryon") && (
         <>
           <Num
             label="grow_mask_px"

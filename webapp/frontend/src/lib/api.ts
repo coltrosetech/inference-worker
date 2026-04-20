@@ -5,6 +5,7 @@ export type Preset =
   | "inpaint"
   | "inpaint_sdxl"
   | "inpaint_realvis"
+  | "tryon"
   | "edit_premium"
   | "inpaint_premium"
   | "ltx_video";

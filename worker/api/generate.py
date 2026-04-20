@@ -41,6 +41,7 @@ class GenerateRequest(BaseModel):
     preset: Literal[
         "edit", "style", "controlnet",
         "inpaint", "inpaint_sdxl", "inpaint_realvis", "inpaint_premium",
+        "tryon",
         "edit_premium",
         "ltx_video",
     ]
@@ -88,12 +89,12 @@ async def generate(
             detail={"code": "INVALID_PARAMETERS", "errors": e.errors()},
         ) from e
 
-    if req.preset == "style" and not req.reference_image_url:
+    if req.preset in ("style", "tryon") and not req.reference_image_url:
         raise HTTPException(
             status_code=400,
             detail={"code": "INVALID_PARAMETERS", "message": "style preset requires reference_image_url"},
         )
-    if req.preset in ("inpaint", "inpaint_sdxl", "inpaint_realvis", "inpaint_premium") and not req.mask_image_url and not req.parameters.get("auto_mask"):
+    if req.preset in ("inpaint", "inpaint_sdxl", "inpaint_realvis", "inpaint_premium", "tryon") and not req.mask_image_url and not req.parameters.get("auto_mask"):
         raise HTTPException(
             status_code=400,
             detail={

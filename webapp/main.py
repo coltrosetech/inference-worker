@@ -72,6 +72,7 @@ async def generate(body: GenerateBody):
     if body.preset not in {
         "edit", "style", "controlnet",
         "inpaint", "inpaint_sdxl", "inpaint_realvis", "inpaint_premium",
+        "tryon",
         "edit_premium",
         "ltx_video",
     }:

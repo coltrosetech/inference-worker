@@ -10,6 +10,7 @@ from worker.presets.inpaint_realvis import InpaintRealvisPreset
 from worker.presets.inpaint_sdxl import InpaintSdxlPreset
 from worker.presets.ltx_video import LtxVideoPreset
 from worker.presets.style import StylePreset
+from worker.presets.tryon import TryonPreset
 
 
 PRESETS: dict[str, Preset] = {
@@ -20,6 +21,7 @@ PRESETS: dict[str, Preset] = {
         InpaintPreset(),
         InpaintSdxlPreset(),
         InpaintRealvisPreset(),
+        TryonPreset(),
         EditPremiumPreset(),
         InpaintPremiumPreset(),
         LtxVideoPreset(),
