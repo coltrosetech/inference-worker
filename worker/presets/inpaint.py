@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from pydantic import ConfigDict, Field, field_validator
 
 from worker.comfyui.workflow import WorkflowTemplate
+from worker.io.segmentation import segment_clothing_to_mask
 from worker.io.structural_refiner import apply_unsharp
 from worker.presets.base import InputPaths, Mode, Preset
 from worker.presets.edit import random_seed
@@ -14,25 +14,15 @@ from worker.presets.edit import random_seed
 DEFAULT_SKIN_PROMPT = "bare natural skin, torso, arms, body, soft even lighting, anatomy"
 UNDRESS_NEGATIVE = "clothing, fabric, garment, shirt, sleeve, dress, jacket, coat, pattern, logo"
 
-# Map canonical lowercase category keys to the mixed-case input names the
-# `segformer_b2_clothes` ComfyUI node actually uses. Keep in lockstep with
-# workflows/inpaint.json and workflows/_segment_clothing.json.
-CATEGORY_TO_NODE_KEY: dict[str, str] = {
-    "face": "Face",
-    "hat": "Hat",
-    "hair": "Hair",
-    "upper_clothes": "Upper_clothes",
-    "skirt": "Skirt",
-    "pants": "Pants",
-    "dress": "Dress",
-    "belt": "Belt",
-    "shoe": "shoe",
-    "leg": "leg",
-    "arm": "arm",
-    "bag": "Bag",
-    "scarf": "Scarf",
-}
-ALLOWED_CATEGORIES: frozenset[str] = frozenset(CATEGORY_TO_NODE_KEY.keys())
+# Categories the SegFormer clothing parser understands. We intentionally expose
+# only garment-like labels here — the Python-side segmentation excludes
+# background / face / hair / skin by construction, so we never mark them as
+# inpaint targets. (The old custom-node path baked `background` into the mask
+# and destroyed it every run; that's why this is a canonical allowlist.)
+ALLOWED_CATEGORIES: frozenset[str] = frozenset({
+    "upper_clothes", "pants", "skirt", "dress", "belt",
+    "hat", "shoe", "scarf", "bag", "sunglasses",
+})
 DEFAULT_AUTO_CATEGORIES: list[str] = ["upper_clothes", "pants", "skirt", "dress", "belt"]
 
 
@@ -79,13 +69,16 @@ class InpaintPreset(Preset):
         params: "InpaintPreset.Parameters",  # type: ignore[override]
         input_paths: InputPaths,
     ) -> WorkflowTemplate:
-        if not params.auto_mask and not input_paths.mask_image:
-            raise ValueError("inpaint preset requires mask_image or auto_mask=true")
+        # By the time inject runs, orchestrate() has already materialised an
+        # auto-mask into input_paths.mask_image when requested.
+        if not input_paths.mask_image:
+            raise ValueError("inpaint preset requires mask_image (or auto_mask=true, which synthesises one)")
 
         seed = params.seed if params.seed is not None else random_seed()
 
         if template.is_api_format():
             template.set_input("input_image", "image", input_paths.input_image)
+            template.set_input("mask_image", "image", input_paths.mask_image)
             template.set_input("grow_mask", "expand", params.grow_mask_px)
             template.set_input("positive_prompt", "text", params.prompt)
             template.set_input("negative_prompt", "text", params.negative_prompt)
@@ -93,27 +86,9 @@ class InpaintPreset(Preset):
             template.set_input("sampler", "steps", params.steps)
             template.set_input("sampler", "cfg", params.cfg)
             template.set_input("sampler", "denoise", params.strength)
-
-            if params.auto_mask:
-                # Enable every category (=> keep that region), then disable the
-                # user-selected ones so they become inpaint targets.
-                for cat, node_key in CATEGORY_TO_NODE_KEY.items():
-                    template.set_input("auto_mask_segmenter", node_key, True)
-                for cat in params.auto_mask_categories:
-                    template.set_input("auto_mask_segmenter", CATEGORY_TO_NODE_KEY[cat], False)
-                # Route the segmenter's mask through ImageToMask into grow_mask.
-                template.set_input("grow_mask", "mask", ["auto_mask_to_mask", 0])
-                # Drop the manual-mask loader so ComfyUI doesn't try to read a
-                # placeholder file that doesn't exist.
-                template.remove_node("mask_image")
-            else:
-                # Manual-mask path: use the uploaded mask, drop the auto branch.
-                template.set_input("mask_image", "image", input_paths.mask_image)
-                template.remove_node("auto_mask_segmenter")
-                template.remove_node("auto_mask_to_mask")
             return template
 
-        # Legacy full-workflow format (widget-indexed) — auto-mask not supported here.
+        # Legacy full-workflow format (widget-indexed)
         template.set_widget("input_image", 0, input_paths.input_image)
         template.set_widget("mask_image", 0, input_paths.mask_image)
         template.set_widget("grow_mask", 0, params.grow_mask_px)
@@ -136,52 +111,50 @@ class InpaintPreset(Preset):
         timeout_sec: float,
         cu_input_dir: Path,
         run_workflow=None,
+        segment_fn=None,
     ) -> Path:
-        """Inpaint orchestration:
+        """Inpaint orchestration.
 
-        - Single-pass (manual or auto-mask): `inject()` handles everything in
-          one ComfyUI call.
-        - Two-pass manual: undress → redress, both runs read the same uploaded
-          mask (existing behavior).
-        - Two-pass + auto-mask: run the segment-only side workflow once, save
-          the mask to ComfyUI's input dir, then re-enter the two-pass manual
-          path with that mask so both passes agree on what to inpaint.
+        When `auto_mask` is on, we synthesise the mask via a Python subprocess
+        (SegFormer running in the ComfyUI venv) *before* any inpaint call. The
+        resulting PNG is written into `cu_input_dir` so the regular inpaint
+        workflow can pick it up exactly like a user-uploaded mask. Both single
+        and two-pass paths then converge on the same deterministic mask — no
+        ComfyUI round-trip for segmentation, no background bleed-through.
         """
-        async def _post(path: Path) -> Path:
-            if params.structural_refiner:
-                apply_unsharp(path, strength=params.refiner_strength)
-            return path
+        seg = segment_fn or segment_clothing_to_mask
 
-        if not params.two_pass:
-            out = await single_pass(params, input_paths, job_id, timeout_sec)
-            return await _post(out)
-
+        mask_was_auto = False
         if params.auto_mask:
-            if run_workflow is None:
-                raise RuntimeError("executor did not supply run_workflow; cannot pre-segment")
-            seg_wf = self._build_segment_workflow(
-                input_paths.input_image, params.auto_mask_categories
-            )
-            seg_out = await run_workflow(seg_wf, f"{job_id}_seg", min(timeout_sec, 120.0), "png")
             mask_name = f"{job_id}_automask.png"
-            (cu_input_dir / mask_name).write_bytes(Path(seg_out).read_bytes())
-            Path(seg_out).unlink(missing_ok=True)
+            await seg(
+                cu_input_dir / input_paths.input_image,
+                cu_input_dir / mask_name,
+                list(params.auto_mask_categories),
+            )
             input_paths = InputPaths(
                 input_image=input_paths.input_image,
                 mask_image=mask_name,
                 reference_image=input_paths.reference_image,
             )
             params = params.model_copy(update={"auto_mask": False})
-            try:
-                return await self._two_pass_manual(
-                    single_pass, params, input_paths, job_id, timeout_sec, cu_input_dir, _post
-                )
-            finally:
-                (cu_input_dir / mask_name).unlink(missing_ok=True)
+            mask_was_auto = True
 
-        return await self._two_pass_manual(
-            single_pass, params, input_paths, job_id, timeout_sec, cu_input_dir, _post
-        )
+        try:
+            if not params.two_pass:
+                out = await single_pass(params, input_paths, job_id, timeout_sec)
+                return await self._apply_post(out, params)
+            return await self._two_pass_manual(
+                single_pass, params, input_paths, job_id, timeout_sec, cu_input_dir
+            )
+        finally:
+            if mask_was_auto:
+                (cu_input_dir / input_paths.mask_image).unlink(missing_ok=True)
+
+    async def _apply_post(self, path: Path, params: "InpaintPreset.Parameters") -> Path:
+        if params.structural_refiner:
+            apply_unsharp(path, strength=params.refiner_strength)
+        return path
 
     async def _two_pass_manual(
         self,
@@ -191,7 +164,6 @@ class InpaintPreset(Preset):
         job_id: str,
         timeout_sec: float,
         cu_input_dir: Path,
-        _post,
     ) -> Path:
         base = params.model_dump()
         for k in ("prompt", "negative_prompt", "strength", "steps",
@@ -230,25 +202,4 @@ class InpaintPreset(Preset):
 
         Path(p1_out).unlink(missing_ok=True)
         (cu_input_dir / p2_input_name).unlink(missing_ok=True)
-        return await _post(p2_out)
-
-    @staticmethod
-    def _build_segment_workflow(input_image: str, categories: list[str]) -> dict[str, Any]:
-        """Inline the tiny _segment_clothing graph so we don't need a file read here."""
-        flags = {node_key: True for node_key in CATEGORY_TO_NODE_KEY.values()}
-        for cat in categories:
-            flags[CATEGORY_TO_NODE_KEY[cat]] = False
-        return {
-            "input_image": {
-                "class_type": "LoadImage",
-                "inputs": {"image": input_image},
-            },
-            "auto_mask_segmenter": {
-                "class_type": "segformer_b2_clothes",
-                "inputs": {"image": ["input_image", 0], **flags},
-            },
-            "save": {
-                "class_type": "SaveImage",
-                "inputs": {"filename_prefix": "automask", "images": ["auto_mask_segmenter", 0]},
-            },
-        }
+        return await self._apply_post(p2_out, params)

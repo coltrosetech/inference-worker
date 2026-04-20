@@ -13,29 +13,6 @@
     "class_type": "LoadImageMask",
     "inputs": {"image": "placeholder_mask.png", "channel": "red"}
   },
-  "auto_mask_segmenter": {
-    "class_type": "segformer_b2_clothes",
-    "inputs": {
-      "image": ["input_image", 0],
-      "Face": true,
-      "Hat": true,
-      "Hair": true,
-      "Upper_clothes": true,
-      "Skirt": true,
-      "Pants": true,
-      "Dress": true,
-      "Belt": true,
-      "shoe": true,
-      "leg": true,
-      "arm": true,
-      "Bag": true,
-      "Scarf": true
-    }
-  },
-  "auto_mask_to_mask": {
-    "class_type": "ImageToMask",
-    "inputs": {"image": ["auto_mask_segmenter", 0], "channel": "red"}
-  },
   "grow_mask": {
     "class_type": "GrowMask",
     "inputs": {

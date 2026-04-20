@@ -190,60 +190,69 @@ def test_inpaint_params_auto_mask_categories_reject_empty():
         InpaintPreset.Parameters(prompt="x", auto_mask_categories=[])
 
 
-def test_inpaint_inject_auto_mask_wires_segmenter():
+async def test_orchestrate_auto_mask_single_pass_calls_segment_and_falls_through(tmp_path):
+    """Single-pass + auto_mask: segment_fn produces the mask, then one inpaint call
+    uses that synthesized mask with auto_mask flipped off."""
     preset = InpaintPreset()
-    tpl = preset.load_template(WORKFLOWS)
+    seg_calls: list[dict] = []
+    single_calls: list[dict] = []
+
+    async def fake_segment(in_path, out_path, categories):
+        seg_calls.append({"in": in_path.name, "out": out_path.name, "cats": list(categories)})
+        Image.new("L", (8, 8), 255).save(out_path)
+        return out_path
+
+    async def fake_single(params, paths, jid, ts):
+        single_calls.append({
+            "prompt": params.prompt,
+            "mask_image": paths.mask_image,
+            "auto_mask": params.auto_mask,
+            "jid": jid,
+        })
+        out = tmp_path / f"{jid}_out.png"
+        Image.new("RGB", (8, 8), "red").save(out)
+        return out
+
+    # Seed the "uploaded input" into cu_input_dir so segment_fn sees a real file.
+    (tmp_path / "orig.png").write_bytes(b"fake-image-bytes")
+
     params = InpaintPreset.Parameters(
-        prompt="red velvet dress",
+        prompt="navy suit",
         auto_mask=True,
         auto_mask_categories=["upper_clothes", "pants"],
-        seed=7,
     )
-    paths = InputPaths(input_image="in.png", mask_image=None)
-    out = preset.inject(tpl, params, paths).to_dict()
+    paths = InputPaths(input_image="orig.png", mask_image=None)
+    result = await preset.orchestrate(
+        fake_single, params, paths,
+        job_id="jS", timeout_sec=60.0, cu_input_dir=tmp_path,
+        segment_fn=fake_segment,
+    )
 
-    assert "mask_image" not in out
-    assert "auto_mask_segmenter" in out
-    assert "auto_mask_to_mask" in out
-    seg = out["auto_mask_segmenter"]["inputs"]
-    assert seg["Upper_clothes"] is False
-    assert seg["Pants"] is False
-    assert seg["Face"] is True and seg["Hair"] is True
-    assert out["grow_mask"]["inputs"]["mask"] == ["auto_mask_to_mask", 0]
+    assert len(seg_calls) == 1
+    assert seg_calls[0]["in"] == "orig.png"
+    assert seg_calls[0]["out"] == "jS_automask.png"
+    assert seg_calls[0]["cats"] == ["upper_clothes", "pants"]
+
+    assert len(single_calls) == 1
+    assert single_calls[0]["auto_mask"] is False  # flipped off before inject
+    assert single_calls[0]["mask_image"] == "jS_automask.png"
+    assert single_calls[0]["prompt"] == "navy suit"
+    assert result.exists()
+    # Mask cleaned up afterwards
+    assert not (tmp_path / "jS_automask.png").exists()
 
 
-def test_inpaint_inject_manual_drops_auto_nodes():
+async def test_orchestrate_auto_mask_two_pass_shares_one_mask(tmp_path):
+    """Two-pass + auto_mask: segment runs once; both passes use the same mask
+    and have auto_mask=False on per-pass params."""
     preset = InpaintPreset()
-    tpl = preset.load_template(WORKFLOWS)
-    params = InpaintPreset.Parameters(prompt="x", auto_mask=False)
-    paths = InputPaths(input_image="in.png", mask_image="m.png")
-    out = preset.inject(tpl, params, paths).to_dict()
-
-    assert "mask_image" in out
-    assert "auto_mask_segmenter" not in out
-    assert "auto_mask_to_mask" not in out
-    assert out["grow_mask"]["inputs"]["mask"] == ["mask_image", 0]
-
-
-def test_inpaint_inject_auto_mask_without_manual_mask_ok():
-    preset = InpaintPreset()
-    tpl = preset.load_template(WORKFLOWS)
-    params = InpaintPreset.Parameters(prompt="x", auto_mask=True)
-    paths = InputPaths(input_image="in.png", mask_image=None)
-    # Should not raise
-    preset.inject(tpl, params, paths)
-
-
-async def test_orchestrate_two_pass_auto_mask_preseg(tmp_path):
-    preset = InpaintPreset()
+    seg_calls: list[dict] = []
     single_calls: list[dict] = []
-    workflow_calls: list[dict] = []
 
-    async def fake_run_workflow(wf, jid, ts, ext):
-        workflow_calls.append({"nodes": set(wf.keys()), "jid": jid})
-        out = tmp_path / f"{jid}_segout.png"
-        Image.new("RGB", (8, 8), "white").save(out)
-        return out
+    async def fake_segment(in_path, out_path, categories):
+        seg_calls.append({"in": in_path.name})
+        Image.new("L", (8, 8), 255).save(out_path)
+        return out_path
 
     async def fake_single(params, paths, jid, ts):
         single_calls.append({
@@ -256,6 +265,8 @@ async def test_orchestrate_two_pass_auto_mask_preseg(tmp_path):
         Image.new("RGB", (8, 8), "blue").save(out)
         return out
 
+    (tmp_path / "orig.png").write_bytes(b"fake")
+
     params = InpaintPreset.Parameters(
         prompt="green silk dress",
         two_pass=True,
@@ -265,47 +276,23 @@ async def test_orchestrate_two_pass_auto_mask_preseg(tmp_path):
     paths = InputPaths(input_image="orig.png", mask_image=None)
     result = await preset.orchestrate(
         fake_single, params, paths,
-        job_id="jAUTO", timeout_sec=120.0, cu_input_dir=tmp_path,
-        run_workflow=fake_run_workflow,
+        job_id="jT", timeout_sec=120.0, cu_input_dir=tmp_path,
+        segment_fn=fake_segment,
     )
 
-    # Segment-only workflow ran once
-    assert len(workflow_calls) == 1
-    assert "auto_mask_segmenter" in workflow_calls[0]["nodes"]
-    assert workflow_calls[0]["jid"] == "jAUTO_seg"
-    # Inpaint ran twice (undress + redress)
+    # Segmentation: once.
+    assert len(seg_calls) == 1
+    # Inpaint: twice.
     assert len(single_calls) == 2
-    # Both passes used the same generated mask filename and had auto_mask disabled
-    assert single_calls[0]["mask_image"].endswith("_automask.png")
-    assert single_calls[0]["mask_image"] == single_calls[1]["mask_image"]
-    assert single_calls[0]["auto_mask"] is False
-    assert single_calls[1]["auto_mask"] is False
-    # Prompts: pass 1 = skin_prompt, pass 2 = user prompt
+    # Both passes read the same auto-generated mask filename and see auto_mask=False.
+    assert single_calls[0]["mask_image"] == "jT_automask.png"
+    assert single_calls[1]["mask_image"] == "jT_automask.png"
+    assert all(c["auto_mask"] is False for c in single_calls)
+    # Prompt sequence: skin_prompt → user prompt.
     assert single_calls[0]["prompt"] == params.skin_prompt
     assert single_calls[1]["prompt"] == "green silk dress"
     assert result.exists()
-
-
-async def test_orchestrate_single_pass_auto_mask_no_run_workflow_needed(tmp_path):
-    """Single-pass + auto_mask runs inject() inline; run_workflow not used."""
-    preset = InpaintPreset()
-
-    async def fake_single(params, paths, jid, ts):
-        out = tmp_path / f"{jid}_out.png"
-        Image.new("RGB", (8, 8), "red").save(out)
-        return out
-
-    async def never_call(*_a, **_kw):
-        raise AssertionError("run_workflow should not be invoked for single-pass auto-mask")
-
-    params = InpaintPreset.Parameters(prompt="x", auto_mask=True, two_pass=False)
-    paths = InputPaths(input_image="orig.png", mask_image=None)
-    result = await preset.orchestrate(
-        fake_single, params, paths,
-        job_id="jS", timeout_sec=60.0, cu_input_dir=tmp_path,
-        run_workflow=never_call,
-    )
-    assert result.exists()
+    assert not (tmp_path / "jT_automask.png").exists()
 
 
 async def test_orchestrate_structural_refiner_modifies_output(tmp_path):
