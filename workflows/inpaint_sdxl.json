@@ -1,0 +1,75 @@
+{
+  "checkpoint": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "juggernaut_xl_inpaint.safetensors"
+    }
+  },
+  "input_image": {
+    "class_type": "LoadImage",
+    "inputs": {"image": "placeholder.png"}
+  },
+  "mask_image": {
+    "class_type": "LoadImageMask",
+    "inputs": {"image": "placeholder_mask.png", "channel": "red"}
+  },
+  "grow_mask": {
+    "class_type": "GrowMask",
+    "inputs": {
+      "mask": ["mask_image", 0],
+      "expand": 8,
+      "tapered_corners": true
+    }
+  },
+  "vae_encode_inpaint": {
+    "class_type": "VAEEncodeForInpaint",
+    "inputs": {
+      "pixels": ["input_image", 0],
+      "vae": ["checkpoint", 2],
+      "mask": ["grow_mask", 0],
+      "grow_mask_by": 6
+    }
+  },
+  "positive_prompt": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {"text": "", "clip": ["checkpoint", 1]}
+  },
+  "negative_prompt": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {"text": "blurry, low quality, distorted", "clip": ["checkpoint", 1]}
+  },
+  "sampler": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 25,
+      "cfg": 7.0,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.9,
+      "model": ["checkpoint", 0],
+      "positive": ["positive_prompt", 0],
+      "negative": ["negative_prompt", 0],
+      "latent_image": ["vae_encode_inpaint", 0]
+    }
+  },
+  "vae_decode": {
+    "class_type": "VAEDecode",
+    "inputs": {"samples": ["sampler", 0], "vae": ["checkpoint", 2]}
+  },
+  "composite": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": ["input_image", 0],
+      "source": ["vae_decode", 0],
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "mask": ["grow_mask", 0]
+    }
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {"filename_prefix": "output", "images": ["composite", 0]}
+  }
+}

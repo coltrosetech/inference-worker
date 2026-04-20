@@ -83,6 +83,30 @@ models:
     sha256: ""
     size_mb: 11900
 
+  # ===== inpaint_sdxl (JuggernautXL Inpaint) =====
+  - name: JuggernautXL Inpaint
+    repo: modelzpalace/juggernautInpaint
+    filename: juggernautXL_versionXInpaint.safetensors
+    dest: checkpoints/juggernaut_xl_inpaint.safetensors
+    sha256: ""
+    size_mb: 6937
+
+  # ===== inpaint_realvis (RealVisXL V4 Inpaint) =====
+  - name: RealVisXL V4.0 Inpaint
+    repo: henrysasse193/realvisxlInpainting_v40-inpainting
+    filename: realvisxlInpainting_v40-inpainting.safetensors
+    dest: checkpoints/realvisxl_v40_inpaint.safetensors
+    sha256: ""
+    size_mb: 6937
+
+  # ===== ControlNet Pose guard for inpaint_premium =====
+  - name: FLUX.1-dev ControlNet Union Pro 2.0 fp8
+    repo: ABDALLALSWAITI/FLUX.1-dev-ControlNet-Union-Pro-2.0-fp8
+    filename: diffusion_pytorch_model.safetensors
+    dest: controlnet/flux_controlnet_union_pro_2_fp8.safetensors
+    sha256: ""
+    size_mb: 2140
+
   - name: FLUX VAE (ae)
     repo: ffxvs/vae-flux
     filename: ae.safetensors

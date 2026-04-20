@@ -6,6 +6,8 @@ from worker.presets.edit import EditPreset
 from worker.presets.edit_premium import EditPremiumPreset
 from worker.presets.inpaint import InpaintPreset
 from worker.presets.inpaint_premium import InpaintPremiumPreset
+from worker.presets.inpaint_realvis import InpaintRealvisPreset
+from worker.presets.inpaint_sdxl import InpaintSdxlPreset
 from worker.presets.ltx_video import LtxVideoPreset
 from worker.presets.style import StylePreset
 
@@ -16,6 +18,8 @@ PRESETS: dict[str, Preset] = {
         StylePreset(),
         ControlnetPreset(),
         InpaintPreset(),
+        InpaintSdxlPreset(),
+        InpaintRealvisPreset(),
         EditPremiumPreset(),
         InpaintPremiumPreset(),
         LtxVideoPreset(),

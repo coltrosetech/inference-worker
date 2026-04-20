@@ -3,6 +3,8 @@ export type Preset =
   | "style"
   | "controlnet"
   | "inpaint"
+  | "inpaint_sdxl"
+  | "inpaint_realvis"
   | "edit_premium"
   | "inpaint_premium"
   | "ltx_video";

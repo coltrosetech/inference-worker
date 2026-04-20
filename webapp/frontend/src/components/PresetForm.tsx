@@ -68,6 +68,34 @@ export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
     auto_mask: false,
     auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
   },
+  inpaint_sdxl: {
+    prompt: "",
+    negative_prompt: "",
+    steps: 25,
+    cfg: 7.0,
+    strength: 0.9,
+    grow_mask_px: 10,
+    two_pass: false,
+    skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
+    structural_refiner: false,
+    refiner_strength: 0.3,
+    auto_mask: true,
+    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
+  },
+  inpaint_realvis: {
+    prompt: "",
+    negative_prompt: "",
+    steps: 30,
+    cfg: 6.5,
+    strength: 0.9,
+    grow_mask_px: 10,
+    two_pass: false,
+    skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
+    structural_refiner: false,
+    refiner_strength: 0.3,
+    auto_mask: true,
+    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
+  },
   edit_premium: { prompt: "", negative_prompt: "", steps: 20, cfg: 1.0, guidance: 2.5 },
   inpaint_premium: {
     prompt: "",
@@ -306,7 +334,7 @@ export function PresetForm({
         </>
       )}
 
-      {(preset === "inpaint" || preset === "inpaint_premium") && (
+      {(preset === "inpaint" || preset === "inpaint_sdxl" || preset === "inpaint_realvis" || preset === "inpaint_premium") && (
         <>
           <Num
             label="grow_mask_px"
@@ -356,7 +384,7 @@ export function PresetForm({
         </>
       )}
 
-      {preset === "inpaint" && (
+      {(preset === "inpaint" || preset === "inpaint_sdxl" || preset === "inpaint_realvis") && (
         <>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
