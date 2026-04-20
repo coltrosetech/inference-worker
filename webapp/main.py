@@ -69,7 +69,7 @@ async def serve_upload(name: str):
 
 @app.post("/api/generate")
 async def generate(body: GenerateBody):
-    if body.preset not in {"edit", "style", "controlnet", "inpaint", "edit_premium", "ltx_video"}:
+    if body.preset not in {"edit", "style", "controlnet", "inpaint", "edit_premium", "inpaint_premium", "ltx_video"}:
         raise HTTPException(400, f"unknown preset {body.preset}")
 
     job_id = f"web_{uuid.uuid4().hex[:10]}"
