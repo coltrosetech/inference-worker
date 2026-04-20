@@ -38,7 +38,7 @@ def _get_queue_and_settings(request: Request):
 class GenerateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     job_id: str = Field(..., min_length=1, max_length=128)
-    preset: Literal["edit", "style", "controlnet", "inpaint", "ltx_video"]
+    preset: Literal["edit", "style", "controlnet", "inpaint", "edit_premium", "ltx_video"]
     prompt: str = Field("", max_length=4000)
     negative_prompt: str = Field("", max_length=4000)
     input_image_url: str

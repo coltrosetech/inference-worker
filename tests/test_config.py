@@ -10,6 +10,15 @@ from worker.core.config import Settings, get_settings
 def _isolate_cwd(monkeypatch, tmp_path):
     """Prevent pydantic-settings from picking up a stray .env in the repo root."""
     monkeypatch.chdir(tmp_path)
+    # Also clear any non-secret Settings env overrides that the caller's shell
+    # may have inherited from a sourced .env — otherwise default-value assertions
+    # read the shell value instead of the class default.
+    for key in (
+        "WORKER_PORT", "COMFYUI_INTERNAL_PORT", "MAX_QUEUE_DEPTH",
+        "JOB_TIMEOUT_SEC_DEFAULT", "GPU_DEVICE", "LOG_LEVEL",
+        "LOG_FORMAT", "METRICS_PORT",
+    ):
+        monkeypatch.delenv(key, raising=False)
 
 
 def test_settings_defaults(monkeypatch, tmp_path):
