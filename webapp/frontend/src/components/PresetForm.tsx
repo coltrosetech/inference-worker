@@ -37,6 +37,9 @@ export interface PresetParams {
   auto_mask_categories?: string[];
   // edit_premium
   guidance?: number;
+  // inpaint_premium pose guard
+  use_pose_guide?: boolean;
+  pose_strength?: number;
   // ltx_video
   num_frames?: 25 | 49 | 97 | 121;
   fps?: number;
@@ -106,6 +109,8 @@ export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
     grow_mask_px: 12,
     auto_mask: true,
     auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
+    use_pose_guide: false,
+    pose_strength: 0.5,
   },
   ltx_video: {
     prompt: "",
@@ -284,14 +289,37 @@ export function PresetForm({
       )}
 
       {preset === "inpaint_premium" && (
-        <Num
-          label="guidance (FLUX-Fill)"
-          value={params.guidance}
-          onChange={(v) => update("guidance", v)}
-          min={0}
-          max={100}
-          step={0.5}
-        />
+        <>
+          <Num
+            label="guidance (FLUX-Fill)"
+            value={params.guidance}
+            onChange={(v) => update("guidance", v)}
+            min={0}
+            max={100}
+            step={0.5}
+          />
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label>pose guide (ControlNet)</Label>
+              <p className="text-xs text-muted-foreground">
+                Locks body proportions using OpenPose — recommended for radical swaps.
+              </p>
+            </div>
+            <Switch
+              checked={!!params.use_pose_guide}
+              onCheckedChange={(v) => update("use_pose_guide", v)}
+            />
+          </div>
+          {params.use_pose_guide && (
+            <Range
+              label="pose_strength"
+              value={params.pose_strength}
+              onChange={(v) => update("pose_strength", v)}
+              max={1.5}
+              step={0.05}
+            />
+          )}
+        </>
       )}
 
       {preset === "style" && (

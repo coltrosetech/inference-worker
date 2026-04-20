@@ -43,6 +43,40 @@
     "class_type": "CLIPTextEncode",
     "inputs": {"text": "", "clip": ["clip_loader", 0]}
   },
+  "pose_preprocessor": {
+    "class_type": "DWPreprocessor",
+    "inputs": {
+      "image": ["input_image", 0],
+      "detect_hand": "enable",
+      "detect_body": "enable",
+      "detect_face": "enable",
+      "resolution": 1024
+    }
+  },
+  "pose_controlnet_loader": {
+    "class_type": "ControlNetLoader",
+    "inputs": {"control_net_name": "flux_controlnet_union_pro_2_fp8.safetensors"}
+  },
+  "pose_type_setter": {
+    "class_type": "SetUnionControlNetType",
+    "inputs": {
+      "control_net": ["pose_controlnet_loader", 0],
+      "type": "openpose"
+    }
+  },
+  "pose_apply": {
+    "class_type": "ControlNetApplySD3",
+    "inputs": {
+      "positive": ["positive_prompt", 0],
+      "negative": ["negative_prompt", 0],
+      "control_net": ["pose_type_setter", 0],
+      "vae": ["vae_loader", 0],
+      "image": ["pose_preprocessor", 0],
+      "strength": 0.5,
+      "start_percent": 0.0,
+      "end_percent": 1.0
+    }
+  },
   "inpaint_cond": {
     "class_type": "InpaintModelConditioning",
     "inputs": {

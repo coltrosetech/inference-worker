@@ -39,6 +39,11 @@ class InpaintPremiumPreset(Preset):
         cfg: float = Field(default=1.0, ge=0.0, le=10.0)
         auto_mask: bool = False
         auto_mask_categories: list[str] = Field(default_factory=lambda: list(DEFAULT_AUTO_CATEGORIES))
+        # Optional OpenPose rig from the input image, applied via FLUX
+        # ControlNet Union Pro 2.0. Keeps body proportions locked during
+        # radical outfit swaps (e.g. suit → swimwear).
+        use_pose_guide: bool = False
+        pose_strength: float = Field(default=0.5, ge=0.0, le=1.5)
 
         @field_validator("auto_mask_categories")
         @classmethod
@@ -82,6 +87,19 @@ class InpaintPremiumPreset(Preset):
             template.set_input("sampler", "seed", seed)
             template.set_input("sampler", "steps", params.steps)
             template.set_input("sampler", "cfg", params.cfg)
+
+            if params.use_pose_guide:
+                # Pose-conditioned: positive / negative flow through
+                # ControlNetApplyAdvanced before reaching InpaintModelConditioning.
+                template.set_input("pose_apply", "strength", params.pose_strength)
+                template.set_input("inpaint_cond", "positive", ["pose_apply", 0])
+                template.set_input("inpaint_cond", "negative", ["pose_apply", 1])
+            else:
+                # Remove the pose branch entirely so the graph doesn't
+                # execute the preprocessor or load the ControlNet.
+                for node in ("pose_preprocessor", "pose_controlnet_loader",
+                             "pose_type_setter", "pose_apply"):
+                    template.remove_node(node)
             return template
 
         raise NotImplementedError("inpaint_premium has no legacy full-format workflow")

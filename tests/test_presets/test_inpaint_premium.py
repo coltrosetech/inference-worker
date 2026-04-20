@@ -43,6 +43,33 @@ def test_inject_requires_mask():
         preset.inject(tpl, params, InputPaths(input_image="in.png", mask_image=None))
 
 
+def test_inject_default_drops_pose_branch():
+    preset = InpaintPremiumPreset()
+    tpl = preset.load_template(WORKFLOWS)
+    params = InpaintPremiumPreset.Parameters(prompt="x", use_pose_guide=False)
+    out = preset.inject(tpl, params, InputPaths(input_image="in.png", mask_image="m.png")).to_dict()
+    for node in ("pose_preprocessor", "pose_controlnet_loader", "pose_type_setter", "pose_apply"):
+        assert node not in out, f"{node} should be removed when use_pose_guide=False"
+    # inpaint_cond still reads directly from the prompts
+    assert out["inpaint_cond"]["inputs"]["positive"] == ["positive_prompt", 0]
+    assert out["inpaint_cond"]["inputs"]["negative"] == ["negative_prompt", 0]
+
+
+def test_inject_with_pose_guide_keeps_and_wires_branch():
+    preset = InpaintPremiumPreset()
+    tpl = preset.load_template(WORKFLOWS)
+    params = InpaintPremiumPreset.Parameters(
+        prompt="x", use_pose_guide=True, pose_strength=0.7,
+    )
+    out = preset.inject(tpl, params, InputPaths(input_image="in.png", mask_image="m.png")).to_dict()
+    for node in ("pose_preprocessor", "pose_controlnet_loader", "pose_type_setter", "pose_apply"):
+        assert node in out, f"{node} should be retained when use_pose_guide=True"
+    assert out["pose_apply"]["inputs"]["strength"] == 0.7
+    # inpaint_cond now sources through pose_apply
+    assert out["inpaint_cond"]["inputs"]["positive"] == ["pose_apply", 0]
+    assert out["inpaint_cond"]["inputs"]["negative"] == ["pose_apply", 1]
+
+
 def test_inject_sets_flux_fill_nodes():
     preset = InpaintPremiumPreset()
     tpl = preset.load_template(WORKFLOWS)
