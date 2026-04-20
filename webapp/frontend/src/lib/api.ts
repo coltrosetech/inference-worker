@@ -1,4 +1,11 @@
-export type Preset = "edit" | "style" | "controlnet" | "inpaint" | "edit_premium" | "ltx_video";
+export type Preset =
+  | "edit"
+  | "style"
+  | "controlnet"
+  | "inpaint"
+  | "edit_premium"
+  | "inpaint_premium"
+  | "ltx_video";
 
 export interface UploadedFile {
   name: string;

@@ -22,6 +22,7 @@ const PRESETS: { value: Preset; label: string; desc: string; needsRef?: boolean;
   { value: "controlnet", label: "controlnet", desc: "Canny / depth / pose / lineart / scribble" },
   { value: "inpaint", label: "inpaint", desc: "Mask-guided regeneration (two-pass opt)", needsMask: true },
   { value: "edit_premium", label: "edit_premium", desc: "FLUX.1-Kontext prompt-driven edit" },
+  { value: "inpaint_premium", label: "inpaint_premium", desc: "FLUX.1-Fill-dev — premium inpaint (preserves anatomy)", needsMask: true },
   { value: "ltx_video", label: "ltx_video", desc: "LTX-Video img2video (mp4)" },
 ];
 

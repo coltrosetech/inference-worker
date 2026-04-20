@@ -69,6 +69,16 @@ export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
     auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
   },
   edit_premium: { prompt: "", negative_prompt: "", steps: 20, cfg: 1.0, guidance: 2.5 },
+  inpaint_premium: {
+    prompt: "",
+    negative_prompt: "",
+    steps: 20,
+    cfg: 1.0,
+    guidance: 30.0,
+    grow_mask_px: 12,
+    auto_mask: true,
+    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
+  },
   ltx_video: {
     prompt: "",
     negative_prompt: "",
@@ -180,10 +190,10 @@ export function PresetForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {preset !== "ltx_video" && preset !== "edit_premium" && (
+        {preset !== "ltx_video" && preset !== "edit_premium" && preset !== "inpaint_premium" && (
           <Num label="steps" value={params.steps} onChange={(v) => update("steps", v)} min={1} max={50} />
         )}
-        {preset === "edit_premium" && (
+        {(preset === "edit_premium" || preset === "inpaint_premium") && (
           <Num label="steps" value={params.steps} onChange={(v) => update("steps", v)} min={4} max={50} />
         )}
         {preset === "ltx_video" && (
@@ -199,7 +209,7 @@ export function PresetForm({
             min={0}
             max={20}
           />
-        ) : preset === "edit_premium" ? (
+        ) : preset === "edit_premium" || preset === "inpaint_premium" ? (
           <Num
             label="cfg"
             value={params.cfg}
@@ -245,6 +255,17 @@ export function PresetForm({
         />
       )}
 
+      {preset === "inpaint_premium" && (
+        <Num
+          label="guidance (FLUX-Fill)"
+          value={params.guidance}
+          onChange={(v) => update("guidance", v)}
+          min={0}
+          max={100}
+          step={0.5}
+        />
+      )}
+
       {preset === "style" && (
         <Range
           label="style_strength (IP-Adapter)"
@@ -285,7 +306,7 @@ export function PresetForm({
         </>
       )}
 
-      {preset === "inpaint" && (
+      {(preset === "inpaint" || preset === "inpaint_premium") && (
         <>
           <Num
             label="grow_mask_px"
@@ -332,6 +353,11 @@ export function PresetForm({
               </div>
             </div>
           )}
+        </>
+      )}
+
+      {preset === "inpaint" && (
+        <>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
               <Label>two-pass (undress → redress)</Label>

@@ -75,6 +75,14 @@ models:
     sha256: ""
     size_mb: 11900
 
+  # ===== inpaint_premium (FLUX.1-Fill-dev) =====
+  - name: FLUX.1-Fill-dev fp8
+    repo: dim/black-forest-labs_FLUX.1-Fill-dev_flux1-fill-dev_fp8.safetensors
+    filename: black-forest-labs_FLUX.1-Fill-dev_flux1-fill-dev_fp8.safetensors
+    dest: diffusion_models/flux_fill_dev_fp8.safetensors
+    sha256: ""
+    size_mb: 11900
+
   - name: FLUX VAE (ae)
     repo: ffxvs/vae-flux
     filename: ae.safetensors
