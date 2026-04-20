@@ -28,21 +28,36 @@ result to the user's storage, and POSTs an HMAC-signed callback.
   Use `GIT_AUTHOR_NAME="Claude Code" GIT_AUTHOR_EMAIL="noreply@anthropic.com"`
   env vars for commits (repo has no user.name/email set).
 
-## Current state (as of 2026-04-20)
+## Current state (as of 2026-04-20, evening)
 
 - Branch: `feat/phase-1-foundation`. `git log --oneline` shows the full trail.
-- Tests: **163 pass, 1 skipped** (`tests/integration/*` requires live worker
+- Tests: **196 pass, 1 skipped** (`tests/integration/*` requires live worker
   + env vars).
-- **Phase 1 + Phase 2 Sprint 2 + FLUX Kontext premium shipped.** Six presets
-  warm via the lifespan and `/v1/health.ready` flips to `true` on RTX 5080
-  (vast.ai). Full warm-up of all six took ~28 s in verification (cold cache).
-  VRAM settles at ~9.5 GB post-warm; ComfyUI's own memory manager evicts old
-  model weights on mode swap, and `ModelManager.ensure()` additionally POSTs
-  `/free` as belt-and-suspenders.
-- Phase 2 Sprints 3–4 (observability, Cloudflare Tunnel, GHCR CI, load
-  testing) remain in the plan. A Phase 3 (FLUX Fill/Redux/ControlNet premium
-  variants, `torch.compile`, SageAttention, TensorRT, batching) is
-  unscheduled.
+- **Ten presets now registered.** Full warm-up of all ten takes ~30 s on
+  RTX 5090 (vast.ai). `/v1/health.ready` flips to `true` once every preset
+  warms successfully.
+  - `edit` — SDXL Lightning img2img + IP-Adapter
+  - `style` — IP-Adapter style transfer
+  - `controlnet` — ControlNet Union SDXL ProMax (canny/depth/pose/lineart/scribble)
+  - `inpaint` — SDXL Lightning inpaint with optional two-pass (undress→redress)
+    + structural refiner. **Python-side SegFormer-B2 auto-mask** keeps face /
+    hair / skin / background intact by construction.
+  - `inpaint_sdxl` — JuggernautXL Inpaint v9, balanced SDXL fine-tune
+  - `inpaint_realvis` — RealVisXL V4 Inpaint, photorealistic portrait aesthetic
+  - `inpaint_premium` — **FLUX.1-Fill-dev fp8** with optional ControlNet pose
+    guide (FLUX.1-dev ControlNet Union Pro 2.0, openpose via DWPreprocessor)
+  - `tryon` — IP-Adapter (garment photo as `reference_image_url`) +
+    JuggernautXL Inpaint for reference-driven virtual try-on
+  - `edit_premium` — FLUX.1-Kontext-dev fp8 prompt-driven semantic edit
+  - `ltx_video` — LTX-Video 2B img→video
+- **Webapp + Cloudflare quick tunnel** live for browser testing (see "Webapp"
+  section).
+- Skipped for this slice, kept as a one-line enable: `--use-sage-attention`
+  in `/opt/supervisor-scripts/comfyui.sh` for ~20-40 % FLUX speed. Package
+  `sageattention` is already pip-installed in the ComfyUI venv.
+- Phase 2 Sprints 3–4 (observability, GHCR CI, load testing) and Phase 3
+  (torch.compile, TensorRT, batching) remain unscheduled. Named Cloudflare
+  tunnel (stable URL) is a separate mini-sprint.
 
 ## Architecture
 
@@ -73,9 +88,32 @@ Registered presets (`worker/presets/__init__.py`):
   SetUnionControlNetType + ControlNetApplyAdvanced`; `AIO_Preprocessor`
   for input; `controlnet_type` enum: canny | depth | pose | lineart |
   scribble.
-- `inpaint` — `VAEEncodeForInpaint + GrowMask + ImageCompositeMasked`;
-  requires `mask_image_url` (InputPaths.mask_image validated at inject
-  time).
+- `inpaint` — `VAEEncodeForInpaint + GrowMask + ImageCompositeMasked` on
+  SDXL Lightning. Optional params: `two_pass` (undress→redress, sidesteps
+  the "majority completion" bias by filling skin first then redressing —
+  uses a separate `skin_prompt` for pass 1), `structural_refiner` (unsharp
+  post-process), `auto_mask` + `auto_mask_categories`. Either
+  `mask_image_url` or `auto_mask=true` is required.
+- `inpaint_sdxl` / `inpaint_realvis` — subclasses of InpaintPreset sharing
+  all its plumbing; only the checkpoint (`juggernaut_xl_inpaint.safetensors`
+  / `realvisxl_v40_inpaint.safetensors`) and sampler defaults (dpmpp_2m +
+  karras, 25 / 30 steps, cfg 7 / 6.5) differ.
+- `inpaint_premium` — `Mode.IMAGE_PREMIUM`. **FLUX.1-Fill-dev fp8**
+  (non-gated `dim/...` mirror) + `InpaintModelConditioning` + `FluxGuidance`
+  (default 30.0). Optional `use_pose_guide` inserts `DWPreprocessor →
+  ControlNetLoader(flux_controlnet_union_pro_2_fp8.safetensors) →
+  SetUnionControlNetType("openpose") → ControlNetApplySD3` (the SD3-family
+  node, needed because FLUX ControlNet requires a VAE input which the
+  legacy `ControlNetApplyAdvanced` node can't supply). When the toggle is
+  off, `inject()` deletes all four pose nodes to avoid paying the
+  preprocessor + ControlNet load cost. Single-shot premium quality —
+  `two_pass` is intentionally not supported here.
+- `tryon` — virtual try-on: needs both `reference_image_url` (the garment
+  photo) and a mask (usually via `auto_mask`). Graph: JuggernautXL Inpaint
+  + `IPAdapterUnifiedLoader` (PLUS preset) + `IPAdapterAdvanced`
+  (weight_type `linear`, embeds_scaling "V only") + the usual inpaint
+  stack. `reference_weight` param (default 0.9) trades prompt freedom
+  against garment fidelity.
 - `ltx_video` — `Mode.VIDEO`, output `video/mp4`. Uses
   `CheckpointLoaderSimple` on the bundled LTX-Video 2B 0.9.8 distilled
   fp8 safetensors (placed in `checkpoints/` — contains UNET+VAE), plus
@@ -85,13 +123,36 @@ Registered presets (`worker/presets/__init__.py`):
   GB; ModelManager triggers `ComfyUIClient.free()` on IMAGE↔VIDEO swap
   to fit the 16 GB budget.
 - `edit_premium` — `Mode.IMAGE_PREMIUM`. **FLUX.1-Kontext-dev fp8 scaled**
-  (Comfy-Org repackaged) for native prompt-driven semantic editing. Pipeline:
-  `UNETLoader + DualCLIPLoader(type=flux, clip_l + t5xxl_fp8) +
+  (Comfy-Org repackaged) for native prompt-driven semantic editing.
+  Pipeline: `UNETLoader + DualCLIPLoader(type=flux, clip_l + t5xxl_fp8) +
   VAELoader(flux_ae) + FluxKontextImageScale + VAEEncode + ReferenceLatent
   + FluxGuidance(guidance=2.5) + KSampler(cfg=1.0, euler/simple, 20 steps)
-  + VAEDecode + SaveImage`. Runs in ~10–30 s on RTX 5080 (16 GB). Much higher
-  quality than `edit` (Lightning img2img) at the cost of latency. User chooses
-  speed vs. quality via preset selection.
+  + VAEDecode + SaveImage`. Runs in ~10–30 s.
+
+## Auto-mask pipeline
+
+`inpaint`, `inpaint_sdxl`, `inpaint_realvis`, `inpaint_premium`, and
+`tryon` all share one auto-mask mechanism. When `parameters.auto_mask` is
+true, `InpaintPreset.orchestrate()` (or the subclass / tryon override)
+shells out to `scripts/segment_clothing.py` via
+`worker/io/segmentation.py` → `asyncio.create_subprocess_exec` against
+`/venv/main/bin/python`. That script loads `mattmdjaga/segformer_b2_clothes`
+from `$MODELS_PATH/segformer_b2_clothes/` and writes a binary PNG mask
+where **only the user-requested clothing category indices** are 255 —
+background, face, hair, skin, and any class the user didn't ask for stay
+0. Why Python-side instead of the `StartHua/Comfyui_segformer_b2_clothes`
+custom node: that node's `sample()` hard-codes `labels_to_keep = [0]`
+(background), so the mask it produces always marks the background as
+inpaint, which wrecked every early auto-mask run. The custom node is no
+longer installed; `configs/custom_nodes.yaml` still has a comment
+explaining why. Model weights (`model.safetensors`, `config.json`,
+`preprocessor_config.json`) **are** kept in `configs/models.yaml`
+because the Python script loads them.
+
+After segmentation, `orchestrate()` writes the mask into ComfyUI's input
+dir as `{job_id}_automask.png`, flips `params.auto_mask` off, and hands
+off to the normal single- or two-pass inpaint flow so both passes read
+the same mask.
 
 Warm-up (`worker/pipeline/warmup.py`) iterates `PRESETS` (or
 `WARMUP_PRESETS` env, comma-list). Per-preset overrides live on the
@@ -145,17 +206,32 @@ sed -i "s|^WORKFLOWS_PATH=.*|WORKFLOWS_PATH=/workspace/works/workflows|" .env
 source /venv/main/bin/activate   # vast.ai template's ComfyUI venv
 COMFYUI_PATH=/workspace/ComfyUI bash scripts/install_custom_nodes.sh configs/custom_nodes.yaml
 
-# Download models (~10 GB, ~4 min at 1 Gbps)
+# Download models (~70 GB total across all ten presets, ~15–25 min at 1 Gbps)
 python scripts/download_models.py --models-dir /workspace/ComfyUI/models
 
 # Restart ComfyUI so it loads new custom nodes
 supervisorctl -c /etc/supervisor/supervisord.conf restart comfyui
 
+# Install the worker (with webapp extra for the playground UI)
+cd /workspace/works
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev,webapp]"
+
 # Start the worker
-source /workspace/works/.venv/bin/activate
 set -a && source .env && set +a
 uvicorn worker.main:app --host 127.0.0.1 --port 8000 &
+
+# Build + start the webapp + Cloudflare tunnel (optional — for browser testing)
+bash scripts/build_frontend.sh        # npm install + vite build
+bash scripts/start_webapp.sh &        # FastAPI on :8001
+bash scripts/start_tunnel.sh          # cloudflared — prints the *.trycloudflare.com URL
 ```
+
+Optional: to enable SageAttention (~20–40 % FLUX-Fill speedup), append
+`--use-sage-attention` to `COMFYUI_ARGS` in `/opt/supervisor-scripts/comfyui.sh`
+and `supervisorctl restart comfyui`. Package is already pip-installed in
+the ComfyUI venv.
 
 See `README.md` for the equivalent Docker path (not yet validated on a fresh
 box; smoke test used the bare-metal path above).
