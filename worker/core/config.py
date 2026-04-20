@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     cloudflare_tunnel_token: str = ""
     allowed_backend_ips: str = ""
 
+    # Warmup
+    warmup_presets: str = ""  # comma-separated preset names; empty = all registered
+
     # Observability
     log_level: str = "info"
     log_format: Literal["json", "text"] = "json"

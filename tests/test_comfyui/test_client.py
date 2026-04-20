@@ -63,3 +63,33 @@ async def test_get_history_raises_when_absent(respx_mock):
         c = ComfyUIClient(http, "http://cu:8188")
         with pytest.raises(KeyError):
             await c.get_history_outputs("pid-42")
+
+
+@pytest.mark.asyncio
+async def test_get_history_entry_returns_none_when_absent(respx_mock):
+    respx_mock.get("http://cu:8188/history/pid-42").respond(200, json={})
+    async with httpx.AsyncClient() as http:
+        c = ComfyUIClient(http, "http://cu:8188")
+        entry = await c.get_history_entry("pid-42")
+    assert entry is None
+
+
+@pytest.mark.asyncio
+async def test_get_history_entry_returns_entry_when_present(respx_mock):
+    hist = {"pid-42": {"status": {"completed": True, "status_str": "success"},
+                       "outputs": {"9": {"images": [{"filename": "r.png"}]}}}}
+    respx_mock.get("http://cu:8188/history/pid-42").respond(200, json=hist)
+    async with httpx.AsyncClient() as http:
+        c = ComfyUIClient(http, "http://cu:8188")
+        entry = await c.get_history_entry("pid-42")
+    assert entry is not None
+    assert entry["status"]["completed"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_history_entry_tolerates_http_error(respx_mock):
+    respx_mock.get("http://cu:8188/history/pid-42").respond(500)
+    async with httpx.AsyncClient() as http:
+        c = ComfyUIClient(http, "http://cu:8188")
+        entry = await c.get_history_entry("pid-42")
+    assert entry is None

@@ -24,6 +24,7 @@ class EditPreset(Preset):
         prompt: str = Field(..., min_length=1, max_length=4000)
         negative_prompt: str = Field(default="", max_length=4000)
         strength: float = Field(default=0.7, ge=0.0, le=1.0)
+        preservation: float = Field(default=0.5, ge=0.0, le=1.5)
         steps: int = Field(default=6, ge=1, le=50)
         cfg: float = Field(default=1.8, ge=0.0, le=15.0)
 
@@ -41,6 +42,10 @@ class EditPreset(Preset):
             template.set_input("input_image", "image", input_paths.input_image)
             template.set_input("positive_prompt", "text", params.prompt)
             template.set_input("negative_prompt", "text", params.negative_prompt)
+            try:
+                template.set_input("ipa_apply", "weight", params.preservation)
+            except KeyError:
+                pass
             template.set_input("sampler", "seed", seed)
             template.set_input("sampler", "steps", params.steps)
             template.set_input("sampler", "cfg", params.cfg)

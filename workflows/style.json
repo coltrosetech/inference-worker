@@ -1,34 +1,78 @@
 {
-  "last_node_id": 14,
-  "last_link_id": 30,
-  "nodes": [
-    {"id": 1, "type": "CheckpointLoaderSimple", "title": "checkpoint",
-     "widgets_values": ["Juggernaut_RunDiffusionPhoto2_Lightning_4Steps.safetensors"]},
-    {"id": 2, "type": "LoraLoader", "title": "lcm_lora",
-     "widgets_values": ["lcm_lora_sdxl.safetensors", 1.0, 1.0]},
-    {"id": 3, "type": "VAELoader", "title": "vae_loader",
-     "widgets_values": ["sdxl_vae_fp16_fix.safetensors"]},
-    {"id": 4, "type": "CLIPVisionLoader", "title": "clip_vision_loader",
-     "widgets_values": ["CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"]},
-    {"id": 5, "type": "IPAdapterModelLoader", "title": "ipa_loader",
-     "widgets_values": ["ip-adapter-plus_sdxl_vit-h.safetensors"]},
-    {"id": 6, "type": "LoadImage", "title": "input_image",
-     "widgets_values": ["placeholder.png", "image"]},
-    {"id": 7, "type": "LoadImage", "title": "reference_image",
-     "widgets_values": ["placeholder_ref.png", "image"]},
-    {"id": 8, "type": "CLIPTextEncode", "title": "positive_prompt",
-     "widgets_values": [""]},
-    {"id": 9, "type": "CLIPTextEncode", "title": "negative_prompt",
-     "widgets_values": ["blurry, low quality, distorted"]},
-    {"id": 10, "type": "IPAdapter", "title": "ipa_apply",
-     "widgets_values": [0.7, 0.0, 1.0, "style transfer"]},
-    {"id": 11, "type": "VAEEncode", "title": "vae_encode"},
-    {"id": 12, "type": "KSampler", "title": "sampler",
-     "widgets_values": [0, "fixed", 6, 1.8, "lcm", "normal", 0.6]},
-    {"id": 13, "type": "VAEDecode", "title": "vae_decode"},
-    {"id": 14, "type": "SaveImage", "title": "save",
-     "widgets_values": ["output"]}
-  ],
-  "links": [],
-  "version": 0.4
+  "checkpoint": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "Juggernaut_RunDiffusionPhoto2_Lightning_4Steps.safetensors"
+    }
+  },
+  "clip_vision_loader": {
+    "class_type": "CLIPVisionLoader",
+    "inputs": {
+      "clip_name": "CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors"
+    }
+  },
+  "ipa_loader": {
+    "class_type": "IPAdapterModelLoader",
+    "inputs": {
+      "ipadapter_file": "ip-adapter-plus_sdxl_vit-h.safetensors"
+    }
+  },
+  "input_image": {
+    "class_type": "LoadImage",
+    "inputs": {"image": "placeholder.png"}
+  },
+  "reference_image": {
+    "class_type": "LoadImage",
+    "inputs": {"image": "placeholder_ref.png"}
+  },
+  "vae_encode": {
+    "class_type": "VAEEncode",
+    "inputs": {"pixels": ["input_image", 0], "vae": ["checkpoint", 2]}
+  },
+  "positive_prompt": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {"text": "", "clip": ["checkpoint", 1]}
+  },
+  "negative_prompt": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {"text": "blurry, low quality, distorted", "clip": ["checkpoint", 1]}
+  },
+  "ipa_apply": {
+    "class_type": "IPAdapterAdvanced",
+    "inputs": {
+      "model": ["checkpoint", 0],
+      "ipadapter": ["ipa_loader", 0],
+      "image": ["reference_image", 0],
+      "clip_vision": ["clip_vision_loader", 0],
+      "weight": 0.7,
+      "weight_type": "style transfer",
+      "combine_embeds": "concat",
+      "start_at": 0.0,
+      "end_at": 1.0,
+      "embeds_scaling": "V only"
+    }
+  },
+  "sampler": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 6,
+      "cfg": 1.8,
+      "sampler_name": "dpmpp_sde",
+      "scheduler": "karras",
+      "denoise": 0.6,
+      "model": ["ipa_apply", 0],
+      "positive": ["positive_prompt", 0],
+      "negative": ["negative_prompt", 0],
+      "latent_image": ["vae_encode", 0]
+    }
+  },
+  "vae_decode": {
+    "class_type": "VAEDecode",
+    "inputs": {"samples": ["sampler", 0], "vae": ["checkpoint", 2]}
+  },
+  "save": {
+    "class_type": "SaveImage",
+    "inputs": {"filename_prefix": "output", "images": ["vae_decode", 0]}
+  }
 }

@@ -28,19 +28,21 @@ result to the user's storage, and POSTs an HMAC-signed callback.
   Use `GIT_AUTHOR_NAME="Claude Code" GIT_AUTHOR_EMAIL="noreply@anthropic.com"`
   env vars for commits (repo has no user.name/email set).
 
-## Current state (as of 2026-04-14)
+## Current state (as of 2026-04-20)
 
-- Branch: `feat/phase-1-foundation` — **40 commits** ahead of origin/main (if
-  origin exists). `git log --oneline` shows the full trail.
-- Tests: **103 pass, 1 skipped** (`tests/integration/*` requires live worker
-  + env vars). `.env` file isolation handled by `_isolate_cwd` fixture in
-  `tests/test_config.py`.
-- **Phase 1 is shippable.** Smoke-tested on RTX 5080: a 4-step JuggernautXL
-  Lightning img2img request through `POST /v1/generate` returns a real
-  image in ~1.6 s end-to-end (download + preprocess + GPU + upload +
-  HMAC callback). Tested with 10 diverse prompts — all succeeded at
-  1.0–1.5 s each. Sample outputs in `/workspace/ComfyUI/output/sample_*.png`
-  on the original instance.
+- Branch: `feat/phase-1-foundation`. `git log --oneline` shows the full trail.
+- Tests: **163 pass, 1 skipped** (`tests/integration/*` requires live worker
+  + env vars).
+- **Phase 1 + Phase 2 Sprint 2 + FLUX Kontext premium shipped.** Six presets
+  warm via the lifespan and `/v1/health.ready` flips to `true` on RTX 5080
+  (vast.ai). Full warm-up of all six took ~28 s in verification (cold cache).
+  VRAM settles at ~9.5 GB post-warm; ComfyUI's own memory manager evicts old
+  model weights on mode swap, and `ModelManager.ensure()` additionally POSTs
+  `/free` as belt-and-suspenders.
+- Phase 2 Sprints 3–4 (observability, Cloudflare Tunnel, GHCR CI, load
+  testing) remain in the plan. A Phase 3 (FLUX Fill/Redux/ControlNet premium
+  variants, `torch.compile`, SageAttention, TensorRT, batching) is
+  unscheduled.
 
 ## Architecture
 
@@ -53,47 +55,71 @@ Two stable docs (read these if you need full detail, do NOT re-derive):
   TDD implementation plan for Phase 1. All 37 code tasks committed; task 38
   (manual smoke test) was executed on the original vast.ai instance.
 
-## Known deviations from the spec/plan
+## Workflow format (API format only)
 
-During smoke test (task 38) we discovered the original plan assumed full-format
-ComfyUI workflows with valid `nodes + links` topology. Empty `links: []` is
-rejected by ComfyUI's `/workflow/convert`. Pivot: use API format directly.
+Both `workflows/edit.json` and `workflows/style.json` use ComfyUI **API
+format** (`{node_name: {class_type, inputs}}`). The legacy full-format
+(`{nodes: [...], links: [...]}`) branch in `EditPreset.inject()` /
+`StylePreset.inject()` is kept as defensive fallback for future workflows
+but is not exercised in production; `Executor._run_inference` skips
+`convert_workflow()` when the template is already API format.
 
-Commit `97c182c` contains the fix:
+Registered presets (`worker/presets/__init__.py`):
+- `edit` — img2img + IP-Adapter (input as ref), weight_type `linear`,
+  `preservation` knob.
+- `style` — img2img + IP-Adapter (separate reference_image), weight_type
+  `style transfer`, `style_strength` knob.
+- `controlnet` — ControlNet Union SDXL ProMax via `ControlNetLoader +
+  SetUnionControlNetType + ControlNetApplyAdvanced`; `AIO_Preprocessor`
+  for input; `controlnet_type` enum: canny | depth | pose | lineart |
+  scribble.
+- `inpaint` — `VAEEncodeForInpaint + GrowMask + ImageCompositeMasked`;
+  requires `mask_image_url` (InputPaths.mask_image validated at inject
+  time).
+- `ltx_video` — `Mode.VIDEO`, output `video/mp4`. Uses
+  `CheckpointLoaderSimple` on the bundled LTX-Video 2B 0.9.8 distilled
+  fp8 safetensors (placed in `checkpoints/` — contains UNET+VAE), plus
+  `CLIPLoader(type="ltxv")` on T5-XXL fp8, then `LTXVImgToVideo +
+  LTXVConditioning + LTXVScheduler + CFGGuider +
+  SamplerCustomAdvanced + VAEDecode + VHS_VideoCombine`. Peak VRAM ~13
+  GB; ModelManager triggers `ComfyUIClient.free()` on IMAGE↔VIDEO swap
+  to fit the 16 GB budget.
+- `edit_premium` — `Mode.IMAGE_PREMIUM`. **FLUX.1-Kontext-dev fp8 scaled**
+  (Comfy-Org repackaged) for native prompt-driven semantic editing. Pipeline:
+  `UNETLoader + DualCLIPLoader(type=flux, clip_l + t5xxl_fp8) +
+  VAELoader(flux_ae) + FluxKontextImageScale + VAEEncode + ReferenceLatent
+  + FluxGuidance(guidance=2.5) + KSampler(cfg=1.0, euler/simple, 20 steps)
+  + VAEDecode + SaveImage`. Runs in ~10–30 s on RTX 5080 (16 GB). Much higher
+  quality than `edit` (Lightning img2img) at the cost of latency. User chooses
+  speed vs. quality via preset selection.
 
-- `workflows/edit.json` is now ComfyUI **API format** (`{node_name: {class_type,
-  inputs}}`) instead of full-format (`{nodes: [...], links: [...]}`).
-- `WorkflowTemplate.is_api_format()` + `set_input(node_name, key, value)` added.
-- `EditPreset.inject()` branches on format; the old `set_widget` path is still
-  there for legacy full-format workflows.
-- `Executor._run_inference` skips `convert_workflow()` when the template is
-  already API format.
-- `workflows/style.json` is still legacy format — tests pass but real inference
-  would fail until it is migrated. See "Open items" below.
+Warm-up (`worker/pipeline/warmup.py`) iterates `PRESETS` (or
+`WARMUP_PRESETS` env, comma-list). Per-preset overrides live on the
+`Preset` base class: `needs_reference_image`, `needs_mask_image`,
+`warmup_params() -> dict`, `warmup_timeout_sec`. `ltx_video` uses small
+frames (25 @ 512×320) for warm-up; its timeout is raised to 600 s.
+`worker_state.mark_ready()` fires only after ALL warmups succeed.
+Standalone invocation remains via `scripts/warm_comfyui.py`.
 
-The `edit` preset is currently a **simple img2img pipeline** (JuggernautXL
-Lightning + CLIP text encoders + KSampler + VAE decode). It does NOT yet use
-IP-Adapter, despite the spec calling for IP-Adapter-driven editing. This was
-intentional for smoke-test throughput; upgrading to IP-Adapter is tracked
-under "Open items".
+## Completed open items (as of 2026-04-20)
 
-## Open items (in order)
+- ~~Migrate `style.json` to API format + IP-Adapter (item #1)~~ — done.
+- ~~IP-Adapter chain in `edit.json` (item #2)~~ — done.
+- ~~Phase 2 plan~~ — at `docs/superpowers/plans/2026-04-20-img-video-worker-phase-2.md`.
+- ~~Auto-warmup → `worker_state.ready` (item #4)~~ — done.
+- Fixed a ws race in `worker/comfyui/client.py` (`wait_for_completion` now
+  polls `/history/{prompt_id}` each 2 s as a fallback; prevents missed
+  completion events when inference is sub-second on cached models).
 
-1. Migrate `workflows/style.json` to API format and include reference image +
-   IP-Adapter style-transfer mode. Update `StylePreset.inject()` analogously
-   to `EditPreset.inject()`.
-2. Extend `workflows/edit.json` to include IP-Adapter chain (CLIPVision,
-   IPAdapterModelLoader, IPAdapter apply) so `edit` matches the "preserve
-   input features while editing" intent from the spec.
-3. Write Phase 2 plan — covers `ltx_video` (image-to-video with LTX-Video 2B),
-   `controlnet` and `inpaint` presets, Prometheus metrics at `/v1/metrics`,
-   Cloudflare Tunnel integration, GHCR CI, load testing. Spec §13 lists the
-   backlog.
-4. Auto-warmup is not wired to `worker_state.ready`. The worker reports
-   `ready=false` indefinitely unless `worker_state.mark_ready()` is called.
-   The integration test fixture `wait_for_worker_ready` expects `ready=true`,
-   so it skips by default. Fix: call warm-up from the lifespan startup and
-   flip the flag when it finishes.
+## Open items (Phase 2 remainder)
+
+See `docs/superpowers/plans/2026-04-20-img-video-worker-phase-2.md`. Sprint 2
+(new presets) shipped. Remaining sprints:
+
+1. Sprint 3 — Full Prometheus metrics wiring + `/v1/metrics` endpoint +
+   optional Sentry.
+2. Sprint 4 — Cloudflare Tunnel + GHCR CI pipeline + load-testing harness
+   + SLO verification.
 
 ## Resuming on a new vast.ai instance
 

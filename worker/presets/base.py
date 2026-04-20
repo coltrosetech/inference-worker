@@ -12,6 +12,7 @@ from worker.comfyui.workflow import WorkflowTemplate
 
 class Mode(str, Enum):
     IMAGE = "image"
+    IMAGE_PREMIUM = "image_premium"
     VIDEO = "video"
 
 
@@ -31,6 +32,14 @@ class Preset(abc.ABC):
     template_filename: ClassVar[str]
     output_extension: ClassVar[str]
     output_content_type: ClassVar[str]
+    needs_reference_image: ClassVar[bool] = False
+    needs_mask_image: ClassVar[bool] = False
+    warmup_timeout_sec: ClassVar[float] = 180.0
+
+    @classmethod
+    def warmup_params(cls) -> dict:
+        """Kwargs for `Parameters(...)` during warm-up. Subclasses may override."""
+        return dict(prompt="warmup", steps=4, cfg=1.2, width=512, height=512, seed=0)
 
     class BaseParameters(BaseModel):
         model_config = ConfigDict(extra="forbid")

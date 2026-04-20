@@ -76,6 +76,14 @@ class ComfyUIClient:
         except httpx.HTTPError:
             pass
 
+    async def free(self, *, unload_models: bool = True, free_memory: bool = True) -> None:
+        """POST /free — drop loaded models to free VRAM."""
+        await self._http.post(
+            f"{self._base}/free",
+            json={"unload_models": unload_models, "free_memory": free_memory},
+            timeout=30.0,
+        )
+
     async def get_history_outputs(self, prompt_id: str) -> dict:
         """GET /history/{prompt_id} — returns the `outputs` dict of that prompt."""
         r = await self._http.get(f"{self._base}/history/{prompt_id}", timeout=15.0)
@@ -84,6 +92,15 @@ class ComfyUIClient:
         if prompt_id not in hist:
             raise KeyError(f"prompt_id {prompt_id!r} not in history")
         return hist[prompt_id].get("outputs", {})
+
+    async def get_history_entry(self, prompt_id: str) -> dict | None:
+        """GET /history/{prompt_id} — returns the full entry, or None if not yet present."""
+        try:
+            r = await self._http.get(f"{self._base}/history/{prompt_id}", timeout=15.0)
+            r.raise_for_status()
+            return r.json().get(prompt_id)
+        except httpx.HTTPError:
+            return None
 
     async def wait_for_completion(
         self,
@@ -105,8 +122,28 @@ class ComfyUIClient:
                 remaining = deadline - loop.time()
                 if remaining <= 0:
                     raise TimeoutError(f"timed out waiting for prompt {prompt_id}")
+                entry = await self.get_history_entry(prompt_id)
+                if entry is not None:
+                    status = entry.get("status", {})
+                    if status.get("status_str") == "error":
+                        msg = "execution_error"
+                        for m in status.get("messages", []):
+                            if isinstance(m, (list, tuple)) and len(m) >= 2 and m[0] == "execution_error":
+                                payload = m[1] if isinstance(m[1], dict) else {}
+                                msg = payload.get("exception_message") or payload.get("exception_type") or msg
+                                break
+                        return ExecutionResult(
+                            prompt_id=prompt_id, outputs={},
+                            success=False, error_message=msg,
+                        )
+                    if status.get("completed") is True or entry.get("outputs"):
+                        return ExecutionResult(
+                            prompt_id=prompt_id,
+                            outputs=entry.get("outputs", {}),
+                            success=True,
+                        )
                 try:
-                    raw = await asyncio.wait_for(ws.recv(), timeout=min(remaining, 5.0))
+                    raw = await asyncio.wait_for(ws.recv(), timeout=min(remaining, 2.0))
                 except asyncio.TimeoutError:
                     continue
                 if isinstance(raw, bytes):

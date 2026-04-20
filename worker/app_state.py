@@ -34,7 +34,7 @@ class AppState:
         http = httpx.AsyncClient()
         comfyui = ComfyUIClient(http, s.comfyui_base_url)
         pools = Pools(io=8, cpu=2, gpu=1)
-        mm = ModelManager()
+        mm = ModelManager(comfyui=comfyui)
         queue = JobQueue(max_depth=s.max_queue_depth)
 
         comfyui_input_dir = s.comfyui_path / "input"

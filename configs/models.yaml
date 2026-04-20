@@ -1,4 +1,4 @@
-# Phase 1 model manifest. Each entry:
+# Phase 1 + Phase 2 model manifest. Each entry:
 #   name: human label (also used in logs)
 #   repo: HuggingFace repo id
 #   filename: file to download within the repo
@@ -43,3 +43,48 @@ models:
     dest: clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors
     sha256: ""
     size_mb: 1264
+
+  # ===== Phase 2: controlnet =====
+  - name: ControlNet Union SDXL ProMax
+    repo: xinsir/controlnet-union-sdxl-1.0
+    filename: diffusion_pytorch_model_promax.safetensors
+    dest: controlnet/cn_union_sdxl_promax.safetensors
+    sha256: ""
+    size_mb: 2506
+
+  # ===== Phase 2: ltx_video =====
+  - name: LTX-Video 2B 0.9.8 distilled fp8
+    repo: Lightricks/LTX-Video
+    filename: ltxv-2b-0.9.8-distilled-fp8.safetensors
+    dest: checkpoints/ltxv_2b_0_9_8_distilled_fp8.safetensors
+    sha256: ""
+    size_mb: 4500
+
+  - name: T5-XXL fp8 encoder
+    repo: comfyanonymous/flux_text_encoders
+    filename: t5xxl_fp8_e4m3fn.safetensors
+    dest: text_encoders/t5xxl_fp8_e4m3fn.safetensors
+    sha256: ""
+    size_mb: 4890
+
+  # ===== Phase 2: edit_premium (FLUX.1-Kontext) =====
+  - name: FLUX.1-Kontext-dev fp8 scaled
+    repo: Comfy-Org/flux1-kontext-dev_ComfyUI
+    filename: split_files/diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors
+    dest: diffusion_models/flux_kontext_dev_fp8_scaled.safetensors
+    sha256: ""
+    size_mb: 11900
+
+  - name: FLUX VAE (ae)
+    repo: ffxvs/vae-flux
+    filename: ae.safetensors
+    dest: vae/flux_ae.safetensors
+    sha256: ""
+    size_mb: 335
+
+  - name: CLIP-L (FLUX text encoder)
+    repo: comfyanonymous/flux_text_encoders
+    filename: clip_l.safetensors
+    dest: text_encoders/clip_l.safetensors
+    sha256: ""
+    size_mb: 246
