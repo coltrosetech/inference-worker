@@ -88,3 +88,25 @@ models:
     dest: text_encoders/clip_l.safetensors
     sha256: ""
     size_mb: 246
+
+  # ===== Auto clothing segmentation (inpaint auto-mask) =====
+  - name: SegFormer-B2 Clothes weights
+    repo: mattmdjaga/segformer_b2_clothes
+    filename: model.safetensors
+    dest: segformer_b2_clothes/model.safetensors
+    sha256: ""
+    size_mb: 109
+
+  - name: SegFormer-B2 Clothes config
+    repo: mattmdjaga/segformer_b2_clothes
+    filename: config.json
+    dest: segformer_b2_clothes/config.json
+    sha256: ""
+    size_mb: 1
+
+  - name: SegFormer-B2 Clothes preprocessor
+    repo: mattmdjaga/segformer_b2_clothes
+    filename: preprocessor_config.json
+    dest: segformer_b2_clothes/preprocessor_config.json
+    sha256: ""
+    size_mb: 1

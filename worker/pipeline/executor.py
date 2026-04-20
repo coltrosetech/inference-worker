@@ -207,6 +207,9 @@ class Executor:
         async def single_pass(p, ip, jid, ts):
             return await self._run_single_pass(preset, p, ip, jid, ts)
 
+        async def run_workflow(wf_dict, jid, ts, expected_ext="png"):
+            return await self._run_raw_workflow(wf_dict, jid, ts, expected_ext)
+
         return await preset.orchestrate(
             single_pass,
             params,
@@ -214,6 +217,7 @@ class Executor:
             job_id=job_id,
             timeout_sec=timeout_sec,
             cu_input_dir=self._cu_input,
+            run_workflow=run_workflow,
         )
 
     async def _run_single_pass(
@@ -253,6 +257,35 @@ class Executor:
             raise AppError(ErrorCode.INFERENCE_FAILED, result.error_message or "inference failed", retryable=True)
 
         return _resolve_output_path(result.outputs, self._cu_output, preset.output_extension)
+
+    async def _run_raw_workflow(
+        self,
+        workflow: dict[str, Any],
+        job_id: str,
+        timeout_sec: float,
+        expected_ext: str,
+    ) -> Path:
+        """Submit an arbitrary API-format graph; used for side workflows like
+        clothing segmentation that are not owned by a preset's template."""
+        import copy as _copy
+        wf = _copy.deepcopy(workflow)
+        for node in wf.values():
+            if isinstance(node, dict) and node.get("class_type") == "SaveImage":
+                node.setdefault("inputs", {})["filename_prefix"] = job_id
+        client_id = new_client_id()
+        prompt_id = await self._comfyui.submit_prompt(wf, client_id=client_id)
+        self._active_prompt_ids[job_id] = prompt_id
+        try:
+            result = await self._comfyui.wait_for_completion(prompt_id, client_id, timeout_sec=timeout_sec)
+        except TimeoutError as e:
+            await self._comfyui.interrupt()
+            raise AppError(ErrorCode.JOB_TIMEOUT, str(e), retryable=True) from e
+        finally:
+            self._active_prompt_ids.pop(job_id, None)
+        if not result.success:
+            raise AppError(ErrorCode.INFERENCE_FAILED,
+                           result.error_message or "side workflow failed", retryable=True)
+        return _resolve_output_path(result.outputs, self._cu_output, expected_ext)
 
 
 @contextmanager

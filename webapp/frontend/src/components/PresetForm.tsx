@@ -33,6 +33,8 @@ export interface PresetParams {
   skin_prompt?: string;
   structural_refiner?: boolean;
   refiner_strength?: number;
+  auto_mask?: boolean;
+  auto_mask_categories?: string[];
   // edit_premium
   guidance?: number;
   // ltx_video
@@ -63,6 +65,8 @@ export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
     skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
     structural_refiner: false,
     refiner_strength: 0.3,
+    auto_mask: false,
+    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
   },
   edit_premium: { prompt: "", negative_prompt: "", steps: 20, cfg: 1.0, guidance: 2.5 },
   ltx_video: {
@@ -290,6 +294,44 @@ export function PresetForm({
             min={0}
             max={128}
           />
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label>auto-mask clothing</Label>
+              <p className="text-xs text-muted-foreground">
+                SegFormer-B2 detects garment regions — no manual mask upload needed.
+              </p>
+            </div>
+            <Switch
+              checked={!!params.auto_mask}
+              onCheckedChange={(v) => update("auto_mask", v)}
+            />
+          </div>
+          {params.auto_mask && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <Label className="text-xs text-muted-foreground">regions to replace</Label>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {(["upper_clothes", "pants", "skirt", "dress", "belt"] as const).map((cat) => {
+                  const on = (params.auto_mask_categories ?? []).includes(cat);
+                  return (
+                    <div key={cat} className="flex items-center justify-between">
+                      <span className="text-sm capitalize">
+                        {cat.replace("_", " ")}
+                      </span>
+                      <Switch
+                        checked={on}
+                        onCheckedChange={(v) => {
+                          const cur = new Set(params.auto_mask_categories ?? []);
+                          if (v) cur.add(cat);
+                          else cur.delete(cat);
+                          update("auto_mask_categories", Array.from(cur));
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
               <Label>two-pass (undress → redress)</Label>

@@ -91,8 +91,16 @@ class Preset(abc.ABC):
         job_id: str,
         timeout_sec: float,
         cu_input_dir: Path,
+        run_workflow=None,
     ) -> Path:
-        """Default: run one pass. Override for multi-pass pipelines (e.g. inpaint undress-redress)."""
+        """Default: run one pass. Override for multi-pass pipelines.
+
+        `single_pass(params, paths, job_id, timeout)` runs this preset's own
+        workflow via the injected params/paths.
+        `run_workflow(workflow_dict, job_id, timeout, expected_ext)` runs an
+        arbitrary API-format ComfyUI graph bypassing the preset's inject —
+        used for side-workflows like auto-mask segmentation.
+        """
         return await single_pass(params, input_paths, job_id, timeout_sec)
 
 

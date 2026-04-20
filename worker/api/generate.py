@@ -88,10 +88,13 @@ async def generate(
             status_code=400,
             detail={"code": "INVALID_PARAMETERS", "message": "style preset requires reference_image_url"},
         )
-    if req.preset == "inpaint" and not req.mask_image_url:
+    if req.preset == "inpaint" and not req.mask_image_url and not req.parameters.get("auto_mask"):
         raise HTTPException(
             status_code=400,
-            detail={"code": "INVALID_PARAMETERS", "message": "inpaint preset requires mask_image_url"},
+            detail={
+                "code": "INVALID_PARAMETERS",
+                "message": "inpaint preset requires mask_image_url or parameters.auto_mask=true",
+            },
         )
 
     queue, settings = _get_queue_and_settings(request)

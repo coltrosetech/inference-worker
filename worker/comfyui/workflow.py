@@ -63,3 +63,7 @@ class WorkflowTemplate:
         if node_name not in self._data:
             raise KeyError(f"no node named {node_name!r} in workflow")
         self._data[node_name].setdefault("inputs", {})[key] = value
+
+    def remove_node(self, node_name: str) -> None:
+        """Drop a node from an API-format workflow; no-op if not present."""
+        self._data.pop(node_name, None)

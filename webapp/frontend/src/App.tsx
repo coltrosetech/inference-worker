@@ -43,11 +43,12 @@ export default function App() {
     setDone(null);
   };
 
+  const maskRequired = presetMeta.needsMask && !params.auto_mask;
   const canSubmit =
     !!inputName &&
     !!params.prompt.trim() &&
     (presetMeta.needsRef ? !!refName : true) &&
-    (presetMeta.needsMask ? !!maskName : true) &&
+    (maskRequired ? !!maskName : true) &&
     !jobId;
 
   const submit = async () => {
@@ -143,7 +144,7 @@ export default function App() {
                 uploadedName={inputName}
                 onUploaded={setInputName}
               />
-              {presetMeta.needsMask && (
+              {maskRequired && (
                 <ImageDropzone
                   label="mask image"
                   hint="white = inpaint, black = keep"
@@ -201,8 +202,8 @@ export default function App() {
                     ? "enter a prompt"
                     : presetMeta.needsRef && !refName
                     ? "upload a reference image"
-                    : presetMeta.needsMask && !maskName
-                    ? "upload a mask image"
+                    : maskRequired && !maskName
+                    ? "upload a mask image (or toggle auto-mask)"
                     : ""}
                 </p>
               )}

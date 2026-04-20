@@ -40,3 +40,14 @@ nodes:
     repo: https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git
     ref: main
     post_install: "python -m pip install -r requirements.txt || true"
+
+  # ===== Auto clothing segmentation for inpaint =====
+  # Loads mattmdjaga/segformer_b2_clothes at module import time from
+  # $MODELS_PATH/segformer_b2_clothes/, so the model MUST be present before
+  # ComfyUI is restarted (see configs/models.yaml).
+  # The upstream __init__.py also imports segformer_b3_fashion (unused by us
+  # and not downloaded); we strip that reference so the package imports cleanly.
+  - name: SegformerB2_Clothes
+    repo: https://github.com/StartHua/Comfyui_segformer_b2_clothes.git
+    ref: main
+    post_install: "python -m pip install 'transformers>=4.38' || true && sed -i '/segformer_b3_fashion/d' __init__.py"
