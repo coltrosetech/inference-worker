@@ -24,6 +24,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+webapp = [
+    "python-multipart==0.0.20",
+]
 dev = [
     "pytest==8.3.4",
     "pytest-asyncio==0.25.0",
@@ -35,7 +38,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["worker*"]
+include = ["worker*", "webapp*"]
 
 [tool.ruff]
 line-length = 110

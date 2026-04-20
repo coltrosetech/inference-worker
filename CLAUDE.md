@@ -160,13 +160,45 @@ uvicorn worker.main:app --host 127.0.0.1 --port 8000 &
 See `README.md` for the equivalent Docker path (not yet validated on a fresh
 box; smoke test used the bare-metal path above).
 
+## Webapp (React + shadcn/ui playground)
+
+A browser UI for testing the worker lives in `webapp/`. It is a separate
+FastAPI app on port 8001 that proxies `/v1/generate` to the worker, stores
+uploads/outputs locally, and receives HMAC-verified callbacks. The worker
+itself stays stateless.
+
+```bash
+# One-time: build the React bundle
+bash scripts/build_frontend.sh
+
+# Runtime: worker must already be up on :8000
+bash scripts/start_webapp.sh          # :8001, serves the UI
+
+# Optional: expose via Cloudflare quick tunnel (ephemeral trycloudflare.com URL)
+bash scripts/start_tunnel.sh
+```
+
+The frontend is `webapp/frontend/` (Vite + React + TS + Tailwind v3 +
+shadcn/ui); `npm run dev` inside that directory gives HMR against the
+running webapp (proxy config in `vite.config.ts`). Routes summary:
+
+- `GET /` — the SPA
+- `POST /api/upload` — multipart → `{name, bytes}`
+- `POST /api/generate` — proxy to worker `/v1/generate` with local URLs
+- `PUT /o/{name}` — worker uploads output here
+- `POST /api/callback` — worker HMAC callback (verified)
+- `GET /api/jobs/{id}` — poll job state
+- `GET /u/{name}`, `GET /o/{name}` — serve upload / output
+
 ## Repository layout
 
 - `worker/` — FastAPI service (api/, core/, comfyui/, io/, pipeline/, presets/)
+- `webapp/` — standalone FastAPI UI (port 8001) + React/Vite/shadcn SPA
 - `workflows/` — ComfyUI workflow JSON templates (API format for edit, legacy
   for style — see Open items #1)
 - `configs/` — model + custom-node YAML manifests
-- `scripts/` — bootstrap, model downloader, warm-up, mock backend, secrets gen
+- `scripts/` — bootstrap, model downloader, warm-up, mock backend, secrets gen,
+  webapp/tunnel launchers
 - `tests/` — unit + component + integration tiers (integration skipped by
   default, requires `WORKER_API_KEY` env)
 - `docs/superpowers/{specs,plans}/` — design artifacts
