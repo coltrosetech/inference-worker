@@ -82,6 +82,19 @@ class Preset(abc.ABC):
     def load_template(self, workflows_dir: Path) -> WorkflowTemplate:
         return WorkflowTemplate.from_file(workflows_dir / self.template_filename)
 
+    async def orchestrate(
+        self,
+        single_pass,
+        params: BaseParameters,
+        input_paths: InputPaths,
+        *,
+        job_id: str,
+        timeout_sec: float,
+        cu_input_dir: Path,
+    ) -> Path:
+        """Default: run one pass. Override for multi-pass pipelines (e.g. inpaint undress-redress)."""
+        return await single_pass(params, input_paths, job_id, timeout_sec)
+
 
 def validate_preset_parameters(preset_cls: type[Preset], raw: dict) -> Preset.BaseParameters:
     """Validate raw dict against the preset's Parameters model."""

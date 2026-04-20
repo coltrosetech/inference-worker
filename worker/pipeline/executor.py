@@ -204,6 +204,26 @@ class Executor:
         job_id: str,
         timeout_sec: float,
     ) -> Path:
+        async def single_pass(p, ip, jid, ts):
+            return await self._run_single_pass(preset, p, ip, jid, ts)
+
+        return await preset.orchestrate(
+            single_pass,
+            params,
+            input_paths,
+            job_id=job_id,
+            timeout_sec=timeout_sec,
+            cu_input_dir=self._cu_input,
+        )
+
+    async def _run_single_pass(
+        self,
+        preset,
+        params,
+        input_paths: InputPaths,
+        job_id: str,
+        timeout_sec: float,
+    ) -> Path:
         tpl = preset.load_template(self._workflows_dir)
         tpl = preset.inject(tpl, params, input_paths)
         if tpl.is_api_format():
