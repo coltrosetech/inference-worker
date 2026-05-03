@@ -1,6 +1,5 @@
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -10,12 +9,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type { Preset } from "@/lib/api";
 
 export interface PresetParams {
   prompt: string;
   negative_prompt: string;
-  // shared
   steps?: number;
   cfg?: number;
   strength?: number;
@@ -27,25 +27,65 @@ export interface PresetParams {
   // controlnet
   controlnet_type?: "canny" | "depth" | "pose" | "lineart" | "scribble";
   controlnet_strength?: number;
-  // inpaint
+  // inpaint family
   grow_mask_px?: number;
+  feather_mask_px?: number;
   two_pass?: boolean;
   skin_prompt?: string;
   structural_refiner?: boolean;
   refiner_strength?: number;
   auto_mask?: boolean;
   auto_mask_categories?: string[];
+  // inpaint_realvis quality stack
+  lora_detail_weight?: number;
+  lora_skin_weight?: number;
+  lora_anatomy_weight?: number;
+  bust_emphasis?: number;
+  face_detailer?: boolean;
+  hand_detailer?: boolean;
+  person_detailer?: boolean;
+  person_detailer_strength?: number;
+  hires_fix?: boolean;
+  hires_strength?: number;
+  hires_scale?: number;
+  preserve_face?: boolean;
   // edit_premium
   guidance?: number;
-  // inpaint_premium pose guard
+  // inpaint_premium pose
   use_pose_guide?: boolean;
   pose_strength?: number;
-  // tryon (IP-Adapter-driven VTON)
+  // tryon
   reference_weight?: number;
   // ltx_video
   num_frames?: 25 | 49 | 97 | 121;
   fps?: number;
 }
+
+const SHARED_REALVIS_DEFAULTS = {
+  steps: 32,
+  cfg: 5.5,
+  strength: 0.92,
+  grow_mask_px: 16,
+  feather_mask_px: 16,
+  two_pass: false,
+  skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
+  structural_refiner: false,
+  refiner_strength: 0.3,
+  auto_mask: true,
+  auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
+  lora_detail_weight: 0.3,
+  lora_skin_weight: 0.25,
+  lora_anatomy_weight: 0.3,
+  bust_emphasis: 0.0,
+  face_detailer: false,
+  hand_detailer: true,
+  person_detailer: true,
+  person_detailer_strength: 0.32,
+  hires_fix: true,
+  hires_strength: 0.22,
+  hires_scale: 1.5,
+  preserve_face: true,
+};
 
 export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
   edit: { prompt: "", negative_prompt: "", steps: 6, cfg: 1.8, strength: 0.7, width: 1024, height: 1024 },
@@ -90,16 +130,7 @@ export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
   inpaint_realvis: {
     prompt: "",
     negative_prompt: "",
-    steps: 30,
-    cfg: 6.5,
-    strength: 0.9,
-    grow_mask_px: 10,
-    two_pass: false,
-    skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
-    structural_refiner: false,
-    refiner_strength: 0.3,
-    auto_mask: true,
-    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
+    ...SHARED_REALVIS_DEFAULTS,
   },
   tryon: {
     prompt: "wearing the reference garment, natural lighting, photorealistic",
@@ -137,70 +168,194 @@ export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
   },
 };
 
-function Num({
+// ------------------- UI primitives -------------------
+
+function Group({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="overflow-hidden rounded-md border border-border bg-surface/30">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-foreground/85 transition-colors hover:bg-surface-2"
+      >
+        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          {title}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open && (
+        <div className="space-y-3 border-t border-border bg-surface/40 px-3 py-3">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SliderRow({
   label,
   value,
   onChange,
-  step = 1,
   min,
   max,
+  step = 0.01,
+  hint,
+  format = (v) => v.toFixed(2),
 }: {
   label: string;
   value: number | undefined;
   onChange: (v: number) => void;
+  min: number;
+  max: number;
   step?: number;
-  min?: number;
-  max?: number;
+  hint?: string;
+  format?: (v: number) => string;
 }) {
+  const v = value ?? 0;
   return (
-    <div className="space-y-1.5">
-      <Label className="flex justify-between">
-        <span>{label}</span>
-        <span className="text-muted-foreground font-mono text-xs">{value}</span>
-      </Label>
-      <Input
-        type="number"
-        value={value ?? ""}
-        step={step}
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <span className="font-mono text-[11px] text-foreground/85">{label}</span>
+        <span className="num text-[11px] text-amber tabular-nums">{format(v)}</span>
+      </div>
+      <Slider
+        value={[v]}
         min={min}
         max={max}
-        onChange={(e) => onChange(Number(e.target.value))}
+        step={step}
+        onValueChange={(arr) => onChange(arr[0])}
       />
+      {hint && (
+        <p className="text-[10px] text-muted-foreground">{hint}</p>
+      )}
     </div>
   );
 }
 
-function Range({
+function NumberRow({
   label,
   value,
   onChange,
-  step = 0.01,
-  min = 0,
-  max = 1,
+  min,
+  max,
+  step = 1,
+  hint,
 }: {
   label: string;
   value: number | undefined;
   onChange: (v: number) => void;
-  step?: number;
   min?: number;
   max?: number;
+  step?: number;
+  hint?: string;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="flex justify-between">
-        <span>{label}</span>
-        <span className="text-muted-foreground font-mono text-xs">{value?.toFixed(2)}</span>
-      </Label>
-      <Slider
-        value={[value ?? 0]}
-        step={step}
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <span className="font-mono text-[11px] text-foreground/85">{label}</span>
+      </div>
+      <input
+        type="number"
+        value={value ?? ""}
         min={min}
         max={max}
-        onValueChange={(v) => onChange(v[0])}
+        step={step}
+        onChange={(e) => {
+          const n = e.target.value === "" ? NaN : Number(e.target.value);
+          if (Number.isFinite(n)) onChange(n);
+        }}
+        className="w-full rounded-md border border-border bg-surface-2 px-2 py-1.5 font-mono text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
       />
+      {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }
+
+function ToggleRow({
+  label,
+  desc,
+  checked,
+  onChange,
+}: {
+  label: string;
+  desc?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-md border border-border bg-surface-2/40 px-3 py-2">
+      <div className="min-w-0">
+        <div className="font-mono text-[11.5px] text-foreground/90">{label}</div>
+        {desc && <div className="text-[10.5px] text-muted-foreground mt-0.5 leading-snug">{desc}</div>}
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
+const ALL_MASK_CATEGORIES = [
+  "upper_clothes",
+  "pants",
+  "skirt",
+  "dress",
+  "belt",
+  "hat",
+  "shoe",
+  "scarf",
+  "bag",
+  "sunglasses",
+] as const;
+
+function MaskCategoryChips({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {ALL_MASK_CATEGORIES.map((cat) => {
+        const on = selected.includes(cat);
+        return (
+          <button
+            key={cat}
+            onClick={() => {
+              const next = new Set(selected);
+              if (on) next.delete(cat);
+              else next.add(cat);
+              onChange(Array.from(next));
+            }}
+            className={cn(
+              "rounded-full border px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] transition-all",
+              on
+                ? "border-amber-500/40 bg-primary/15 text-primary"
+                : "border-border bg-surface-2 text-muted-foreground hover:bg-surface-3 hover:text-foreground",
+            )}
+            style={on ? { borderColor: "rgba(245,185,66,0.42)" } : undefined}
+          >
+            {cat.replace("_", " ")}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ------------------- Main form -------------------
 
 export function PresetForm({
   preset,
@@ -211,329 +366,403 @@ export function PresetForm({
   params: PresetParams;
   setParams: (p: PresetParams) => void;
 }) {
-  const update = <K extends keyof PresetParams>(k: K, v: PresetParams[K]) => setParams({ ...params, [k]: v });
+  const u = <K extends keyof PresetParams>(k: K, v: PresetParams[K]) =>
+    setParams({ ...params, [k]: v });
+
+  const isInpaint =
+    preset === "inpaint" ||
+    preset === "inpaint_sdxl" ||
+    preset === "inpaint_realvis" ||
+    preset === "inpaint_premium" ||
+    preset === "tryon";
+
+  const isRealvis = preset === "inpaint_realvis";
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label>prompt</Label>
-        <Textarea
-          placeholder="describe the image you want..."
-          value={params.prompt}
-          onChange={(e) => update("prompt", e.target.value)}
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>negative prompt (optional)</Label>
-        <Textarea
-          placeholder="what to avoid..."
-          value={params.negative_prompt}
-          onChange={(e) => update("negative_prompt", e.target.value)}
-          rows={2}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {preset !== "ltx_video" && preset !== "edit_premium" && preset !== "inpaint_premium" && (
-          <Num label="steps" value={params.steps} onChange={(v) => update("steps", v)} min={1} max={50} />
-        )}
-        {(preset === "edit_premium" || preset === "inpaint_premium") && (
-          <Num label="steps" value={params.steps} onChange={(v) => update("steps", v)} min={4} max={50} />
-        )}
-        {preset === "ltx_video" && (
-          <Num label="steps" value={params.steps} onChange={(v) => update("steps", v)} min={1} max={100} />
-        )}
-
-        {preset === "ltx_video" ? (
-          <Num
-            label="cfg"
+    <div className="space-y-2.5">
+      {/* Sampling */}
+      <Group title="sampling" defaultOpen>
+        <div className="grid grid-cols-2 gap-3">
+          <NumberRow
+            label="steps"
+            value={params.steps}
+            onChange={(v) => u("steps", v)}
+            min={1}
+            max={preset === "ltx_video" ? 100 : 60}
+          />
+          <NumberRow
+            label={preset === "edit_premium" || preset === "inpaint_premium" || preset === "ltx_video" ? "cfg" : "cfg"}
             value={params.cfg}
-            onChange={(v) => update("cfg", v)}
-            step={0.1}
+            onChange={(v) => u("cfg", v)}
             min={0}
             max={20}
-          />
-        ) : preset === "edit_premium" || preset === "inpaint_premium" ? (
-          <Num
-            label="cfg"
-            value={params.cfg}
-            onChange={(v) => update("cfg", v)}
             step={0.1}
-            min={0}
-            max={10}
           />
-        ) : (
-          <Num
-            label="cfg"
-            value={params.cfg}
-            onChange={(v) => update("cfg", v)}
-            step={0.1}
-            min={0}
-            max={15}
-          />
-        )}
+          {(preset === "edit" ||
+            preset === "style" ||
+            preset === "controlnet" ||
+            preset === "inpaint" ||
+            preset === "inpaint_sdxl" ||
+            preset === "inpaint_realvis" ||
+            preset === "tryon") && (
+            <SliderRow
+              label="strength"
+              value={params.strength}
+              onChange={(v) => u("strength", v)}
+              min={0}
+              max={1}
+            />
+          )}
+          {preset === "edit_premium" && (
+            <SliderRow
+              label="guidance"
+              value={params.guidance}
+              onChange={(v) => u("guidance", v)}
+              min={0}
+              max={10}
+              step={0.1}
+            />
+          )}
+        </div>
 
-        <Num
-          label="seed (blank = random)"
-          value={params.seed ?? undefined}
-          onChange={(v) => update("seed", Number.isFinite(v) ? v : null)}
-        />
-      </div>
-
-      {(preset === "edit" || preset === "style" || preset === "controlnet" || preset === "inpaint") && (
-        <Range
-          label="strength (denoise)"
-          value={params.strength}
-          onChange={(v) => update("strength", v)}
-        />
-      )}
-
-      {preset === "edit_premium" && (
-        <Range
-          label="guidance"
-          value={params.guidance}
-          onChange={(v) => update("guidance", v)}
-          min={0}
-          max={10}
-          step={0.1}
-        />
-      )}
-
-      {preset === "inpaint_premium" && (
-        <>
-          <Num
+        {preset === "inpaint_premium" && (
+          <SliderRow
             label="guidance (FLUX-Fill)"
             value={params.guidance}
-            onChange={(v) => update("guidance", v)}
+            onChange={(v) => u("guidance", v)}
             min={0}
             max={100}
             step={0.5}
+            format={(v) => v.toFixed(1)}
           />
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <Label>pose guide (ControlNet)</Label>
-              <p className="text-xs text-muted-foreground">
-                Locks body proportions using OpenPose — recommended for radical swaps.
-              </p>
+        )}
+
+        {preset === "style" && (
+          <SliderRow
+            label="style_strength"
+            value={params.style_strength}
+            onChange={(v) => u("style_strength", v)}
+            min={0}
+            max={1.5}
+          />
+        )}
+
+        {preset === "tryon" && (
+          <SliderRow
+            label="reference_weight"
+            value={params.reference_weight}
+            onChange={(v) => u("reference_weight", v)}
+            min={0}
+            max={2}
+            step={0.05}
+          />
+        )}
+
+        {preset === "controlnet" && (
+          <>
+            <div className="space-y-1">
+              <span className="font-mono text-[11px] text-foreground/85">controlnet_type</span>
+              <Select
+                value={params.controlnet_type}
+                onValueChange={(v) =>
+                  u("controlnet_type", v as NonNullable<PresetParams["controlnet_type"]>)
+                }
+              >
+                <SelectTrigger className="bg-surface-2 font-mono text-[12px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["canny", "depth", "pose", "lineart", "scribble"] as const).map((t) => (
+                    <SelectItem key={t} value={t} className="font-mono text-[12px]">
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Switch
-              checked={!!params.use_pose_guide}
-              onCheckedChange={(v) => update("use_pose_guide", v)}
+            <SliderRow
+              label="controlnet_strength"
+              value={params.controlnet_strength}
+              onChange={(v) => u("controlnet_strength", v)}
+              min={0}
+              max={2}
             />
-          </div>
+          </>
+        )}
+      </Group>
+
+      {/* Mask + auto-mask */}
+      {isInpaint && (
+        <Group title="mask" defaultOpen={isInpaint}>
+          <ToggleRow
+            label="auto-mask clothing"
+            desc="SegFormer-B2 detects garments — no manual mask required."
+            checked={!!params.auto_mask}
+            onChange={(v) => u("auto_mask", v)}
+          />
+          {params.auto_mask && (
+            <div className="space-y-1.5">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
+                regions to replace
+              </div>
+              <MaskCategoryChips
+                selected={params.auto_mask_categories ?? []}
+                onChange={(next) => u("auto_mask_categories", next)}
+              />
+            </div>
+          )}
+          <SliderRow
+            label="grow_mask_px"
+            value={params.grow_mask_px}
+            onChange={(v) => u("grow_mask_px", Math.round(v))}
+            min={0}
+            max={64}
+            step={1}
+            format={(v) => `${Math.round(v)}px`}
+          />
+          {isRealvis && (
+            <SliderRow
+              label="feather_mask_px"
+              value={params.feather_mask_px}
+              onChange={(v) => u("feather_mask_px", Math.round(v))}
+              min={0}
+              max={64}
+              step={1}
+              hint="soft gradient at the mask edge"
+              format={(v) => `${Math.round(v)}px`}
+            />
+          )}
+        </Group>
+      )}
+
+      {/* RealVis LoRA stack */}
+      {isRealvis && (
+        <Group title="lora stack">
+          <SliderRow
+            label="detail"
+            value={params.lora_detail_weight}
+            onChange={(v) => u("lora_detail_weight", v)}
+            min={0}
+            max={1.5}
+            hint="add-detail-xl — fabric/skin texture"
+          />
+          <SliderRow
+            label="skin"
+            value={params.lora_skin_weight}
+            onChange={(v) => u("lora_skin_weight", v)}
+            min={0}
+            max={1.5}
+            hint="realistic-skin-v5 — pores & natural tone"
+          />
+          <SliderRow
+            label="anatomy"
+            value={params.lora_anatomy_weight}
+            onChange={(v) => u("lora_anatomy_weight", v)}
+            min={0}
+            max={1.5}
+            hint="body-details-xl — proportions"
+          />
+          <SliderRow
+            label="bust_emphasis"
+            value={params.bust_emphasis}
+            onChange={(v) => u("bust_emphasis", v)}
+            min={-1.5}
+            max={1.5}
+            hint="curvy-body-xl · negative reduces, positive enhances"
+            format={(v) => (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2))}
+          />
+        </Group>
+      )}
+
+      {/* Detailers + hires */}
+      {isRealvis && (
+        <Group title="detailers · hires">
+          <ToggleRow
+            label="person_detailer"
+            desc="YOLO26n detects body, re-render at 1024px for distant subjects."
+            checked={!!params.person_detailer}
+            onChange={(v) => u("person_detailer", v)}
+          />
+          {params.person_detailer && (
+            <SliderRow
+              label="person_detailer_strength"
+              value={params.person_detailer_strength}
+              onChange={(v) => u("person_detailer_strength", v)}
+              min={0}
+              max={0.8}
+            />
+          )}
+          <ToggleRow
+            label="face_detailer"
+            desc="Re-renders face — turn off if you want the original face preserved."
+            checked={!!params.face_detailer}
+            onChange={(v) => u("face_detailer", v)}
+          />
+          <ToggleRow
+            label="hand_detailer"
+            desc="Detects hands and fixes finger anatomy."
+            checked={!!params.hand_detailer}
+            onChange={(v) => u("hand_detailer", v)}
+          />
+          <ToggleRow
+            label="hires_fix"
+            desc="4× upscale + img2img refine — boosts final resolution."
+            checked={!!params.hires_fix}
+            onChange={(v) => u("hires_fix", v)}
+          />
+          {params.hires_fix && (
+            <>
+              <SliderRow
+                label="hires_strength"
+                value={params.hires_strength}
+                onChange={(v) => u("hires_strength", v)}
+                min={0}
+                max={0.6}
+              />
+              <SliderRow
+                label="hires_scale"
+                value={params.hires_scale}
+                onChange={(v) => u("hires_scale", v)}
+                min={1.0}
+                max={2.0}
+                step={0.05}
+                format={(v) => `${v.toFixed(2)}×`}
+              />
+            </>
+          )}
+          <ToggleRow
+            label="preserve_face"
+            desc="Composites original face/skin/background back onto the hires output."
+            checked={!!params.preserve_face}
+            onChange={(v) => u("preserve_face", v)}
+          />
+        </Group>
+      )}
+
+      {/* Two-pass + structural refiner */}
+      {(preset === "inpaint" || preset === "inpaint_sdxl" || preset === "inpaint_realvis") && (
+        <Group title="advanced">
+          <ToggleRow
+            label="two_pass (undress → redress)"
+            desc="Pass 1 fills skin, pass 2 dresses. Removes original-outfit residual bias."
+            checked={!!params.two_pass}
+            onChange={(v) => u("two_pass", v)}
+          />
+          {params.two_pass && (
+            <div className="space-y-1.5">
+              <span className="font-mono text-[11px] text-foreground/85">skin_prompt (pass 1)</span>
+              <Textarea
+                value={params.skin_prompt ?? ""}
+                onChange={(e) => u("skin_prompt", e.target.value)}
+                rows={2}
+                className="bg-surface-2 font-mono text-[12px]"
+              />
+            </div>
+          )}
+          <ToggleRow
+            label="structural_refiner"
+            desc="Final unsharp pass — sharpens edges, may amplify noise."
+            checked={!!params.structural_refiner}
+            onChange={(v) => u("structural_refiner", v)}
+          />
+          {params.structural_refiner && (
+            <SliderRow
+              label="refiner_strength"
+              value={params.refiner_strength}
+              onChange={(v) => u("refiner_strength", v)}
+              min={0}
+              max={1}
+            />
+          )}
+        </Group>
+      )}
+
+      {preset === "inpaint_premium" && (
+        <Group title="pose guard">
+          <ToggleRow
+            label="use_pose_guide (ControlNet)"
+            desc="Locks body proportions using OpenPose, recommended for radical swaps."
+            checked={!!params.use_pose_guide}
+            onChange={(v) => u("use_pose_guide", v)}
+          />
           {params.use_pose_guide && (
-            <Range
+            <SliderRow
               label="pose_strength"
               value={params.pose_strength}
-              onChange={(v) => update("pose_strength", v)}
+              onChange={(v) => u("pose_strength", v)}
+              min={0}
               max={1.5}
               step={0.05}
             />
           )}
-        </>
-      )}
-
-      {preset === "style" && (
-        <Range
-          label="style_strength (IP-Adapter)"
-          value={params.style_strength}
-          onChange={(v) => update("style_strength", v)}
-          max={1.5}
-        />
-      )}
-
-      {preset === "tryon" && (
-        <Range
-          label="reference_weight (garment influence)"
-          value={params.reference_weight}
-          onChange={(v) => update("reference_weight", v)}
-          max={2}
-          step={0.05}
-        />
-      )}
-
-      {preset === "controlnet" && (
-        <>
-          <div className="space-y-1.5">
-            <Label>controlnet_type</Label>
-            <Select
-              value={params.controlnet_type}
-              onValueChange={(v) =>
-                update("controlnet_type", v as NonNullable<PresetParams["controlnet_type"]>)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(["canny", "depth", "pose", "lineart", "scribble"] as const).map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Range
-            label="controlnet_strength"
-            value={params.controlnet_strength}
-            onChange={(v) => update("controlnet_strength", v)}
-            max={2}
-          />
-        </>
-      )}
-
-      {(preset === "inpaint" || preset === "inpaint_sdxl" || preset === "inpaint_realvis" || preset === "inpaint_premium" || preset === "tryon") && (
-        <>
-          <Num
-            label="grow_mask_px"
-            value={params.grow_mask_px}
-            onChange={(v) => update("grow_mask_px", v)}
-            min={0}
-            max={128}
-          />
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <Label>auto-mask clothing</Label>
-              <p className="text-xs text-muted-foreground">
-                SegFormer-B2 detects garment regions — no manual mask upload needed.
-              </p>
-            </div>
-            <Switch
-              checked={!!params.auto_mask}
-              onCheckedChange={(v) => update("auto_mask", v)}
-            />
-          </div>
-          {params.auto_mask && (
-            <div className="space-y-2 rounded-lg border p-3">
-              <Label className="text-xs text-muted-foreground">regions to replace</Label>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {(["upper_clothes", "pants", "skirt", "dress", "belt"] as const).map((cat) => {
-                  const on = (params.auto_mask_categories ?? []).includes(cat);
-                  return (
-                    <div key={cat} className="flex items-center justify-between">
-                      <span className="text-sm capitalize">
-                        {cat.replace("_", " ")}
-                      </span>
-                      <Switch
-                        checked={on}
-                        onCheckedChange={(v) => {
-                          const cur = new Set(params.auto_mask_categories ?? []);
-                          if (v) cur.add(cat);
-                          else cur.delete(cat);
-                          update("auto_mask_categories", Array.from(cur));
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {(preset === "inpaint" || preset === "inpaint_sdxl" || preset === "inpaint_realvis") && (
-        <>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <Label>two-pass (undress → redress)</Label>
-              <p className="text-xs text-muted-foreground">
-                Fills skin first to avoid the "majority completion" bias.
-              </p>
-            </div>
-            <Switch
-              checked={params.two_pass}
-              onCheckedChange={(v) => update("two_pass", v)}
-            />
-          </div>
-          {params.two_pass && (
-            <div className="space-y-1.5">
-              <Label>skin_prompt (pass 1)</Label>
-              <Textarea
-                value={params.skin_prompt ?? ""}
-                onChange={(e) => update("skin_prompt", e.target.value)}
-                rows={2}
-              />
-            </div>
-          )}
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <Label>structural refiner</Label>
-              <p className="text-xs text-muted-foreground">
-                High-frequency unsharp at final stage.
-              </p>
-            </div>
-            <Switch
-              checked={params.structural_refiner}
-              onCheckedChange={(v) => update("structural_refiner", v)}
-            />
-          </div>
-          {params.structural_refiner && (
-            <Range
-              label="refiner_strength"
-              value={params.refiner_strength}
-              onChange={(v) => update("refiner_strength", v)}
-            />
-          )}
-        </>
+        </Group>
       )}
 
       {preset === "ltx_video" && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>num_frames</Label>
-            <Select
-              value={String(params.num_frames)}
-              onValueChange={(v) =>
-                update("num_frames", Number(v) as NonNullable<PresetParams["num_frames"]>)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[25, 49, 97, 121].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <Group title="video" defaultOpen>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <span className="font-mono text-[11px] text-foreground/85">num_frames</span>
+              <Select
+                value={String(params.num_frames)}
+                onValueChange={(v) =>
+                  u("num_frames", Number(v) as NonNullable<PresetParams["num_frames"]>)
+                }
+              >
+                <SelectTrigger className="bg-surface-2 font-mono text-[12px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[25, 49, 97, 121].map((n) => (
+                    <SelectItem key={n} value={String(n)} className="font-mono">
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <NumberRow label="fps" value={params.fps} onChange={(v) => u("fps", v)} min={8} max={60} />
+            <NumberRow
+              label="width"
+              value={params.width}
+              onChange={(v) => u("width", v)}
+              min={256}
+              max={1216}
+              step={16}
+            />
+            <NumberRow
+              label="height"
+              value={params.height}
+              onChange={(v) => u("height", v)}
+              min={256}
+              max={704}
+              step={16}
+            />
           </div>
-          <Num
-            label="fps"
-            value={params.fps}
-            onChange={(v) => update("fps", v)}
-            min={8}
-            max={60}
-          />
-          <Num
-            label="width"
-            value={params.width}
-            onChange={(v) => update("width", v)}
-            min={256}
-            max={1216}
-            step={16}
-          />
-          <Num
-            label="height"
-            value={params.height}
-            onChange={(v) => update("height", v)}
-            min={256}
-            max={704}
-            step={16}
-          />
-        </div>
+        </Group>
       )}
 
       {(preset === "edit" || preset === "style" || preset === "controlnet") && (
-        <div className="grid grid-cols-2 gap-3">
-          <Num label="width" value={params.width} onChange={(v) => update("width", v)} min={64} max={4096} step={16} />
-          <Num label="height" value={params.height} onChange={(v) => update("height", v)} min={64} max={4096} step={16} />
-        </div>
+        <Group title="size">
+          <div className="grid grid-cols-2 gap-3">
+            <NumberRow
+              label="width"
+              value={params.width}
+              onChange={(v) => u("width", v)}
+              min={64}
+              max={4096}
+              step={16}
+            />
+            <NumberRow
+              label="height"
+              value={params.height}
+              onChange={(v) => u("height", v)}
+              min={64}
+              max={4096}
+              step={16}
+            />
+          </div>
+        </Group>
       )}
     </div>
   );

@@ -1,53 +1,208 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    /* Atelier console — dark by default, no light mode toggle */
+    --background: 240 8% 4%;          /* #0a0a0c */
+    --foreground: 240 6% 96%;         /* #f4f4f7 */
+
+    --surface: 240 7% 7%;             /* #131317 */
+    --surface-2: 240 6% 10%;          /* #1a1a1f */
+    --surface-3: 240 6% 14%;          /* #232328 */
+
+    --card: 240 7% 7%;
+    --card-foreground: 240 6% 96%;
+
+    --popover: 240 7% 7%;
+    --popover-foreground: 240 6% 96%;
+
+    --primary: 41 90% 62%;            /* sodium amber #f5b942 */
+    --primary-foreground: 240 8% 4%;
+
+    --secondary: 240 6% 14%;
+    --secondary-foreground: 240 6% 96%;
+
+    --muted: 240 6% 12%;
+    --muted-foreground: 240 4% 64%;
+
+    --accent: 41 90% 62%;
+    --accent-foreground: 240 8% 4%;
+
+    --destructive: 358 75% 59%;
+    --destructive-foreground: 240 6% 96%;
+
+    --success: 158 65% 48%;           /* mint */
+    --info: 215 96% 68%;              /* azure */
+    --warning: 38 92% 56%;
+
+    --border: 240 5% 15%;
+    --border-strong: 240 5% 22%;
+    --input: 240 6% 12%;
+    --ring: 41 90% 62%;
+
     --radius: 0.5rem;
+
+    /* Custom glow tokens used in shadow-utilities */
+    --glow-amber: 0 0 0 1px rgba(245, 185, 66, 0.18), 0 8px 32px -8px rgba(245, 185, 66, 0.25);
+    --glow-amber-soft: 0 0 28px -10px rgba(245, 185, 66, 0.45);
   }
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+  * {
+    @apply border-border;
   }
 
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; font-feature-settings: "rlig" 1, "calt" 1; }
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Geist", system-ui, sans-serif;
+    font-feature-settings: "ss01" 1, "cv11" 1;
+    background-image:
+      radial-gradient(1200px 600px at 18% -10%, rgba(245, 185, 66, 0.045), transparent 60%),
+      radial-gradient(900px 500px at 92% 110%, rgba(91, 157, 255, 0.035), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(245, 185, 66, 0.25);
+    color: hsl(var(--foreground));
+  }
+
+  /* The page is always dark, regardless of the .dark class */
+  :root {
+    color-scheme: dark;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Instrument Serif", "Geist", serif;
+    font-weight: 400;
+  }
+  .font-mono {
+    font-family: "Geist Mono", ui-monospace, "SF Mono", monospace;
+    font-feature-settings: "tnum" 1;
+  }
+  .font-sans {
+    font-family: "Geist", system-ui, sans-serif;
+  }
+
+  .glow-amber {
+    box-shadow: var(--glow-amber);
+  }
+  .glow-amber-soft {
+    box-shadow: var(--glow-amber-soft);
+  }
+
+  .text-amber {
+    color: hsl(var(--primary));
+  }
+  .text-mint {
+    color: hsl(var(--success));
+  }
+  .text-azure {
+    color: hsl(var(--info));
+  }
+
+  .bg-surface {
+    background-color: hsl(var(--surface));
+  }
+  .bg-surface-2 {
+    background-color: hsl(var(--surface-2));
+  }
+  .bg-surface-3 {
+    background-color: hsl(var(--surface-3));
+  }
+
+  .border-strong {
+    border-color: hsl(var(--border-strong));
+  }
+
+  /* Subtle grid lines used as background ornament */
+  .grid-fade {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Numeric readout — used for slider values, durations, timestamps */
+  .num {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-feature-settings: "tnum" 1, "zero" 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Scrollbar */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 6px;
+    border: 2px solid hsl(var(--background));
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer components {
+  /* Pulsing dot used for status indicators */
+  .status-dot {
+    @apply inline-block h-1.5 w-1.5 rounded-full;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  .status-dot-pulse {
+    animation: status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes status-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 currentColor;
+      opacity: 1;
+    }
+    50% {
+      box-shadow: 0 0 0 6px transparent;
+      opacity: 0.55;
+    }
+  }
+
+  /* Stagger reveal on page load */
+  .reveal {
+    opacity: 0;
+    transform: translateY(8px);
+    animation: reveal-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+  .reveal-delay-1 { animation-delay: 0.05s; }
+  .reveal-delay-2 { animation-delay: 0.12s; }
+  .reveal-delay-3 { animation-delay: 0.20s; }
+  .reveal-delay-4 { animation-delay: 0.28s; }
+
+  @keyframes reveal-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Inline kbd hint */
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-border bg-surface-2 px-1.5 text-[10px] font-mono text-muted-foreground;
+  }
+
+  /* Subtle inset card */
+  .panel {
+    @apply rounded-lg border border-border bg-surface;
+  }
+  .panel-strong {
+    @apply rounded-lg border border-strong bg-surface-2;
+  }
 }

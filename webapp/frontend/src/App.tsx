@@ -1,77 +1,76 @@
-import { useMemo, useState } from "react";
-import { Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { ImageDropzone } from "@/components/ImageDropzone";
+import { useEffect, useMemo, useState } from "react";
+import { SystemBar } from "@/components/SystemBar";
+import { PresetRail, presetMeta } from "@/components/PresetRail";
+import { InputCard } from "@/components/InputCard";
+import { PromptEditor } from "@/components/PromptEditor";
 import { DEFAULTS_BY_PRESET, PresetForm, type PresetParams } from "@/components/PresetForm";
-import { JobProgress } from "@/components/JobProgress";
-import { ResultViewer } from "@/components/ResultViewer";
+import { JobQueue } from "@/components/JobQueue";
+import { OutputViewer } from "@/components/OutputViewer";
+import { CompareLightbox } from "@/components/CompareLightbox";
+import { SeedControl } from "@/components/SeedControl";
+import { GenerateButton } from "@/components/GenerateButton";
 import { submitGenerate, type JobState, type Preset } from "@/lib/api";
 
-const PRESETS: { value: Preset; label: string; desc: string; needsRef?: boolean; needsMask?: boolean }[] = [
-  { value: "edit", label: "edit", desc: "SDXL Lightning img2img + IP-Adapter (preservation)" },
-  { value: "style", label: "style", desc: "IP-Adapter style transfer", needsRef: true },
-  { value: "controlnet", label: "controlnet", desc: "Canny / depth / pose / lineart / scribble" },
-  { value: "inpaint", label: "inpaint", desc: "SDXL Lightning inpaint — fast, few-step", needsMask: true },
-  { value: "inpaint_sdxl", label: "inpaint_sdxl", desc: "JuggernautXL Inpaint v9 — balanced SDXL", needsMask: true },
-  { value: "inpaint_realvis", label: "inpaint_realvis", desc: "RealVisXL V4 Inpaint — photorealistic", needsMask: true },
-  { value: "tryon", label: "tryon", desc: "Virtual try-on — upload garment photo, IP-Adapter transfer", needsMask: true, needsRef: true },
-  { value: "edit_premium", label: "edit_premium", desc: "FLUX.1-Kontext prompt-driven edit" },
-  { value: "inpaint_premium", label: "inpaint_premium", desc: "FLUX.1-Fill-dev — premium (preserves anatomy)", needsMask: true },
-  { value: "ltx_video", label: "ltx_video", desc: "LTX-Video img2video (mp4)" },
-];
-
 export default function App() {
-  const [preset, setPreset] = useState<Preset>("edit");
-  const [params, setParams] = useState<PresetParams>(DEFAULTS_BY_PRESET.edit);
-  const [inputName, setInputName] = useState<string | null>(null);
-  const [maskName, setMaskName] = useState<string | null>(null);
-  const [refName, setRefName] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [submitErr, setSubmitErr] = useState<string | null>(null);
-  const [done, setDone] = useState<JobState | null>(null);
+  const [preset, setPreset] = useState<Preset>("inpaint_realvis");
+  const [params, setParams] = useState<PresetParams>(DEFAULTS_BY_PRESET.inpaint_realvis);
 
-  const presetMeta = useMemo(() => PRESETS.find((p) => p.value === preset)!, [preset]);
+  const [inputName, setInputName] = useState<string | null>(null);
+  const [inputBucket, setInputBucket] = useState<[number, number] | null>(null);
+  const [maskName, setMaskName] = useState<string | null>(null);
+  const [maskBucket, setMaskBucket] = useState<[number, number] | null>(null);
+  const [refName, setRefName] = useState<string | null>(null);
+  const [refBucket, setRefBucket] = useState<[number, number] | null>(null);
+
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [submitErr, setSubmitErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const [lightboxJob, setLightboxJob] = useState<JobState | null>(null);
+  const [lightboxInput, setLightboxInput] = useState<string | null>(null);
+
+  const meta = useMemo(() => presetMeta(preset), [preset]);
+
+  // Note: presetMeta only returns label/desc; needs flags come from a separate
+  // table here for backwards-compatibility with the old PRESETS list.
+  const presetReq = useMemo(() => {
+    const needsRef = preset === "style" || preset === "tryon";
+    const needsMask =
+      preset === "inpaint" ||
+      preset === "inpaint_sdxl" ||
+      preset === "inpaint_realvis" ||
+      preset === "inpaint_premium" ||
+      preset === "tryon";
+    return { needsRef, needsMask };
+  }, [preset]);
 
   const changePreset = (p: Preset) => {
     setPreset(p);
     setParams(DEFAULTS_BY_PRESET[p]);
-    setDone(null);
+    setSubmitErr(null);
   };
 
-  const maskRequired = presetMeta.needsMask && !params.auto_mask;
+  const maskRequired = presetReq.needsMask && !params.auto_mask;
   const canSubmit =
     !!inputName &&
     !!params.prompt.trim() &&
-    (presetMeta.needsRef ? !!refName : true) &&
+    (presetReq.needsRef ? !!refName : true) &&
     (maskRequired ? !!maskName : true) &&
-    !jobId;
+    !busy;
 
   const submit = async () => {
     setSubmitErr(null);
-    setDone(null);
-    if (!inputName) return;
+    if (!inputName || !params.prompt.trim()) return;
+    setBusy(true);
     try {
-      const {
-        prompt,
-        negative_prompt,
-        seed,
-        ...rest
-      } = params;
+      const { prompt, negative_prompt, seed, ...rest } = params;
       const parameters: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(rest)) {
         if (v !== undefined && v !== null && v !== "") parameters[k] = v;
       }
-      if (seed !== null && seed !== undefined && Number.isFinite(seed)) parameters.seed = seed;
-
+      if (seed !== null && seed !== undefined && Number.isFinite(seed)) {
+        parameters.seed = seed;
+      }
       const r = await submitGenerate({
         preset,
         prompt,
@@ -84,169 +83,180 @@ export default function App() {
       });
       if (r.status === "failed") {
         setSubmitErr("worker rejected the request");
+        setBusy(false);
         return;
       }
-      setJobId(r.job_id);
+      setActiveJobId(r.job_id);
     } catch (e) {
       setSubmitErr((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const reset = () => {
-    setJobId(null);
-    setDone(null);
-    setSubmitErr(null);
+  // Cmd/Ctrl + Enter to submit
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canSubmit) {
+        e.preventDefault();
+        void submit();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
+  const onRetry = () => {
+    setParams({ ...params, seed: Math.floor(Math.random() * 9_007_199_254_740_991) });
+    void submit();
   };
 
+  const blockingHint = !canSubmit
+    ? !inputName
+      ? "→ upload an input image"
+      : !params.prompt.trim()
+      ? "→ enter a prompt"
+      : presetReq.needsRef && !refName
+      ? "→ upload a reference image"
+      : maskRequired && !maskName
+      ? "→ upload a mask (or enable auto-mask)"
+      : null
+    : null;
+
   return (
-    <div className="min-h-screen">
-      <header className="border-b bg-card/30">
-        <div className="container flex items-center justify-between py-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <div>
-              <h1 className="text-lg font-semibold leading-tight">inference worker · playground</h1>
-              <p className="text-xs text-muted-foreground">
-                coltrosetech/inference-worker · 6 presets · HMAC-signed callbacks
-              </p>
+    <div className="grid h-screen min-h-screen w-full grid-rows-[auto_1fr] bg-background text-foreground">
+      <SystemBar />
+
+      <div className="grid min-h-0 grid-cols-[260px_minmax(0,1fr)_360px_360px]">
+        <PresetRail selected={preset} onSelect={changePreset} />
+
+        {/* Center column: composer */}
+        <main className="reveal reveal-delay-2 flex min-h-0 flex-col overflow-hidden">
+          <div className="border-b border-border px-6 py-4">
+            <div className="flex items-baseline gap-2">
+              <span className="font-display italic text-lg">{meta.label}</span>
+              <span className="text-[11px] text-muted-foreground">— {meta.desc}</span>
             </div>
           </div>
-        </div>
-      </header>
 
-      <main className="container grid gap-6 py-8 lg:grid-cols-[1fr_1.3fr]">
-        {/* Left column: inputs + form */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>preset</CardTitle>
-              <CardDescription>{presetMeta.desc}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Select value={preset} onValueChange={(v) => changePreset(v as Preset)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRESETS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>inputs</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ImageDropzone
-                label="input image"
+          <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr_auto]">
+            {/* Inputs row — fixed height */}
+            <div className="grid gap-3 border-b border-border px-6 py-5 lg:grid-cols-3">
+              <InputCard
+                label="input"
                 uploadedName={inputName}
-                onUploaded={setInputName}
+                bucket={inputBucket}
+                onUploaded={(n, b) => {
+                  setInputName(n);
+                  setInputBucket(b);
+                }}
               />
-              {maskRequired && (
-                <ImageDropzone
-                  label="mask image"
-                  hint="white = inpaint, black = keep"
+              {presetReq.needsMask && !params.auto_mask && (
+                <InputCard
+                  label="mask"
+                  hint="white = inpaint area, black = keep"
                   uploadedName={maskName}
-                  onUploaded={setMaskName}
+                  bucket={maskBucket}
+                  onUploaded={(n, b) => {
+                    setMaskName(n);
+                    setMaskBucket(b);
+                  }}
                 />
               )}
-              {presetMeta.needsRef && (
-                <ImageDropzone
-                  label="reference image"
-                  hint="style source (IP-Adapter)"
+              {presetReq.needsRef && (
+                <InputCard
+                  label="reference"
+                  hint="style/garment source · IP-Adapter"
                   uploadedName={refName}
-                  onUploaded={setRefName}
+                  bucket={refBucket}
+                  onUploaded={(n, b) => {
+                    setRefName(n);
+                    setRefBucket(b);
+                  }}
                 />
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>parameters</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PresetForm preset={preset} params={params} setParams={setParams} />
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column: actions + progress + result */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>run</CardTitle>
-              <CardDescription>
-                worker ingests via HTTP callback; HMAC-verified receipt.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex gap-2">
-                <Button onClick={submit} disabled={!canSubmit} className="w-full">
-                  {jobId ? "running..." : "generate"}
-                </Button>
-                {(jobId || done) && (
-                  <Button variant="outline" onClick={reset}>
-                    reset
-                  </Button>
-                )}
+            {/* Composer body — scrolls */}
+            <div className="grid min-h-0 grid-cols-[1.4fr_1fr] gap-4 overflow-y-auto px-6 py-5">
+              <div className="space-y-4">
+                <PromptEditor
+                  prompt={params.prompt}
+                  negative={params.negative_prompt ?? ""}
+                  onPrompt={(s) => setParams({ ...params, prompt: s })}
+                  onNegative={(s) => setParams({ ...params, negative_prompt: s })}
+                  presetLabel={preset}
+                />
               </div>
-              {submitErr && <p className="text-xs text-destructive">{submitErr}</p>}
-              {!canSubmit && !jobId && (
-                <p className="text-xs text-muted-foreground">
-                  {!inputName
-                    ? "upload an input image to enable"
-                    : !params.prompt.trim()
-                    ? "enter a prompt"
-                    : presetMeta.needsRef && !refName
-                    ? "upload a reference image"
-                    : maskRequired && !maskName
-                    ? "upload a mask image (or toggle auto-mask)"
-                    : ""}
-                </p>
-              )}
+              <div className="space-y-2">
+                <PresetForm preset={preset} params={params} setParams={setParams} />
+              </div>
+            </div>
 
-              {jobId && (
-                <>
-                  <Separator />
-                  <JobProgress
-                    jobId={jobId}
-                    onDone={(s) => {
-                      setDone(s);
-                    }}
+            {/* Sticky action bar at bottom of composer */}
+            <div className="border-t border-border bg-surface/30 px-6 py-3 backdrop-blur">
+              <div className="flex items-center justify-between gap-3">
+                <SeedControl
+                  seed={params.seed ?? null}
+                  onChange={(s) => setParams({ ...params, seed: s })}
+                />
+                <div className="flex items-center gap-3">
+                  {submitErr && (
+                    <span className="font-mono text-[11px] text-destructive">{submitErr}</span>
+                  )}
+                  <GenerateButton
+                    busy={busy || (activeJobId ? true : false)}
+                    disabled={!canSubmit}
+                    onClick={submit}
+                    hint={blockingHint}
                   />
-                </>
-              )}
-            </CardContent>
-          </Card>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
 
-          {done && done.status === "success" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>result</CardTitle>
-                <CardDescription>
-                  {done.preset} · {done.duration_ms != null ? `${(done.duration_ms / 1000).toFixed(1)}s` : ""}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResultViewer state={done} />
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </main>
+        {/* Right column 1: output viewer */}
+        <section className="reveal reveal-delay-3 min-h-0 overflow-hidden border-l border-border bg-surface/20">
+          <OutputViewer
+            jobId={activeJobId}
+            inputName={inputName}
+            onRetry={onRetry}
+            onLightbox={(j, i) => {
+              setLightboxJob(j);
+              setLightboxInput(i);
+            }}
+          />
+        </section>
 
-      <footer className="border-t py-4">
-        <div className="container text-xs text-muted-foreground">
-          vast.ai · ComfyUI · FLUX.1-Kontext / LTX-Video / SDXL Lightning
-        </div>
-      </footer>
+        {/* Right column 2: queue */}
+        <section className="reveal reveal-delay-4 min-h-0 overflow-hidden border-l border-border bg-surface/40">
+          <JobQueue
+            selectedId={activeJobId}
+            onSelect={(j) => {
+              setActiveJobId(j.job_id);
+              if (j.status === "success") {
+                setLightboxJob(null);
+              }
+            }}
+            onRetry={(j) => {
+              setActiveJobId(j.job_id);
+              setParams({
+                ...params,
+                seed: Math.floor(Math.random() * 9_007_199_254_740_991),
+              });
+              void submit();
+            }}
+          />
+        </section>
+      </div>
+
+      <CompareLightbox
+        open={!!lightboxJob}
+        job={lightboxJob}
+        inputName={lightboxInput}
+        onClose={() => setLightboxJob(null)}
+      />
     </div>
   );
 }
