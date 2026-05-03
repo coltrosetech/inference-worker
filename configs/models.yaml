@@ -142,3 +142,67 @@ models:
     dest: segformer_b2_clothes/preprocessor_config.json
     sha256: ""
     size_mb: 1
+
+  # ===== Quality pack B (inpaint_realvis upgrade) =====
+  - name: Add Detail XL LoRA
+    repo: PvDeep/Add-Detail-XL
+    filename: add-detail-xl.safetensors
+    dest: loras/add_detail_xl.safetensors
+    sha256: ""
+    size_mb: 232
+
+  - name: Realistic Skin Texture v5 LoRA
+    repo: Jonjew/RealisticSkin
+    filename: skin texture style v5.safetensors
+    dest: loras/realistic_skin_v5.safetensors
+    sha256: ""
+    size_mb: 228
+
+  - name: Body Details XL LoRA
+    repo: NicoEmb/BodyEnhancement-LoRAs
+    filename: 307mb_bodydetails.safetensors
+    dest: loras/body_details_xl.safetensors
+    sha256: ""
+    size_mb: 307
+
+  - name: Body Proportion XL LoRA
+    repo: NicoEmb/BodyEnhancement-LoRAs
+    filename: 10mb_bodyproportion.safetensors
+    dest: loras/body_proportion_xl.safetensors
+    sha256: ""
+    size_mb: 10
+
+  - name: 4x-UltraSharp ESRGAN
+    repo: lokCX/4x-Ultrasharp
+    filename: 4x-UltraSharp.pth
+    dest: upscale_models/4x-UltraSharp.pth
+    sha256: ""
+    size_mb: 64
+
+  - name: face_yolov8m bbox detector
+    repo: Bingsu/adetailer
+    filename: face_yolov8m.pt
+    dest: ultralytics/bbox/face_yolov8m.pt
+    sha256: ""
+    size_mb: 52
+
+  - name: hand_yolov8s bbox detector
+    repo: Bingsu/adetailer
+    filename: hand_yolov8s.pt
+    dest: ultralytics/bbox/hand_yolov8s.pt
+    sha256: ""
+    size_mb: 22
+
+  - name: YOLO26n person/object detector
+    repo: Ultralytics/YOLO26
+    filename: yolo26n.pt
+    dest: ultralytics/bbox/yolo26n.pt
+    sha256: ""
+    size_mb: 6
+
+  - name: Curvy Body SDXL LoRA
+    repo: G858/curvy-body-sdxl-lora
+    filename: curvy-body-sdxl.safetensors
+    dest: loras/curvy_body_xl.safetensors
+    sha256: ""
+    size_mb: 230
