@@ -44,7 +44,7 @@ class EditPremiumPreset(Preset):
         params: "EditPremiumPreset.Parameters",  # type: ignore[override]
         input_paths: InputPaths,
     ) -> WorkflowTemplate:
-        seed = params.seed if params.seed is not None else random_seed()
+        seed = params.seed if params.seed is not None and params.seed >= 0 else random_seed()
 
         if template.is_api_format():
             template.set_input("input_image", "image", input_paths.input_image)

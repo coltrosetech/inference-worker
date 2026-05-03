@@ -47,7 +47,7 @@ class ControlnetPreset(Preset):
         params: "ControlnetPreset.Parameters",  # type: ignore[override]
         input_paths: InputPaths,
     ) -> WorkflowTemplate:
-        seed = params.seed if params.seed is not None else random_seed()
+        seed = params.seed if params.seed is not None and params.seed >= 0 else random_seed()
         preproc, union_type = _CN_TYPE_MAP[params.controlnet_type]
 
         if template.is_api_format():

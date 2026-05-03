@@ -35,7 +35,7 @@ class StylePreset(Preset):
         if not input_paths.reference_image:
             raise ValueError("style preset requires reference_image")
 
-        seed = params.seed if params.seed is not None else random_seed()
+        seed = params.seed if params.seed is not None and params.seed >= 0 else random_seed()
 
         if template.is_api_format():
             template.set_input("input_image", "image", input_paths.input_image)
