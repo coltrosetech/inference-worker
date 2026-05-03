@@ -8,13 +8,26 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import io
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
 
 from webapp.storage import JobRecord, Storage
 from worker.core.hmac_sign import verify
+
+SDXL_BUCKETS: list[tuple[int, int]] = [
+    (1024, 1024), (1152, 896), (896, 1152),
+    (1216, 832), (832, 1216), (1344, 768), (768, 1344),
+]
+
+
+def fit_to_sdxl_bucket(img: Image.Image) -> Image.Image:
+    target_aspect = img.width / img.height
+    bw, bh = min(SDXL_BUCKETS, key=lambda b: abs((b[0] / b[1]) - target_aspect))
+    return ImageOps.fit(img, (bw, bh), method=Image.Resampling.LANCZOS)
 
 
 DATA_DIR = Path(os.environ.get("WEBAPP_DATA_DIR", "/tmp/webapp_data"))
@@ -45,18 +58,35 @@ class GenerateBody(BaseModel):
 
 
 @app.post("/api/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload(file: UploadFile = File(...), bucket: bool = True):
     ext = Path(file.filename or "file.png").suffix.lower() or ".png"
     if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
         raise HTTPException(400, f"unsupported extension: {ext}")
-    uid = uuid.uuid4().hex[:12]
-    name = f"{uid}{ext}"
-    p = storage.upload_path(name)
     data = await file.read()
     if len(data) > 25 * 1024 * 1024:
         raise HTTPException(413, "file too large (max 25 MB)")
+
+    uid = uuid.uuid4().hex[:12]
+
+    if bucket:
+        try:
+            img = Image.open(io.BytesIO(data))
+            img = ImageOps.exif_transpose(img).convert("RGB")
+            fitted = fit_to_sdxl_bucket(img)
+            buf = io.BytesIO()
+            fitted.save(buf, format="PNG", optimize=False)
+            data = buf.getvalue()
+            ext = ".png"
+            bucket_size = (fitted.width, fitted.height)
+        except Exception as e:
+            raise HTTPException(400, f"image decode failed: {e}") from e
+    else:
+        bucket_size = None
+
+    name = f"{uid}{ext}"
+    p = storage.upload_path(name)
     p.write_bytes(data)
-    return {"name": name, "bytes": len(data)}
+    return {"name": name, "bytes": len(data), "bucket": bucket_size}
 
 
 @app.get("/u/{name}")
@@ -190,6 +220,18 @@ async def list_jobs(limit: int = 20):
 @app.get("/api/health")
 async def health():
     return {"ok": True, "worker_url": WORKER_URL, "jobs_active": len(storage.list(limit=1000))}
+
+
+@app.get("/api/worker-health")
+async def worker_health():
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            r = await client.get(f"{WORKER_URL}/v1/health")
+        return r.json()
+    except httpx.HTTPError as e:
+        return JSONResponse(
+            {"ok": False, "ready": False, "error": str(e)}, status_code=503,
+        )
 
 
 # --- static frontend (Vite build output) -------------------------------------
