@@ -46,7 +46,13 @@ by `scripts/gen_secrets.sh` if missing.
 3. Worker downloads the input, runs inference, PUTs the output to the
    signed `upload_url`, and POSTs a HMAC-signed callback to `callback_url`.
 
-## Presets (Phase 1)
+## Presets
+
+Ten presets shipped (image + video). The flagship for outfit-replacement
+work is **`inpaint_realvis`**, which has a layered quality stack on top of
+the base RealVisXL V4 inpaint — see `docs/quality-pack.md`. The admin
+panel that drives all of this is `webapp/frontend/`, documented in
+`docs/admin-panel.md`.
 
 - `edit` — IP-Adapter + Lightning SDXL, prompt-driven edit
 - `style` — IP-Adapter style transfer using a reference image

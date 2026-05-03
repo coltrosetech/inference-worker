@@ -28,11 +28,39 @@ result to the user's storage, and POSTs an HMAC-signed callback.
   Use `GIT_AUTHOR_NAME="Claude Code" GIT_AUTHOR_EMAIL="noreply@anthropic.com"`
   env vars for commits (repo has no user.name/email set).
 
-## Current state (as of 2026-04-20, evening)
+## Current state (as of 2026-05-03, evening)
 
 - Branch: `feat/phase-1-foundation`. `git log --oneline` shows the full trail.
 - Tests: **196 pass, 1 skipped** (`tests/integration/*` requires live worker
-  + env vars).
+  + env vars). The new `inpaint_realvis` quality stack is exercised by the
+  warmup path (warmup.ok proves the workflow validates against ComfyUI's
+  current `object_info`). Unit tests around the preset's new params are
+  TODO — the CI plan owns that.
+- **Quality pack (RealVis) shipped.** See `docs/quality-pack.md` for the full
+  story. Defaults are tuned for natural / non-AI-looking output:
+  - 4 chained LoRAs: detail (0.30), skin (0.25), anatomy (0.30), curvy
+    (`bust_emphasis`, default 0.0, range -1.5..+1.5).
+  - YOLO26n PersonDetailer (Ultralytics/YOLO26, Jan 2026 release) — solves
+    the "subject far away" problem by re-rendering the person bbox at
+    1024px guide_size and pasting back.
+  - HandDetailer ON, FaceDetailer OFF by default (the auto-mask + final
+    `preserve_composite` already keep the original face).
+  - 4×-UltraSharp ESRGAN + `ImageScaleBy(scale_by/4)` hires-fix pass
+    at `denoise=0.22`, default 1.5× scale of the bucket size.
+  - `FeatherMask` (16 px default) + mask-aware `preserve_composite` so the
+    face/skin/background are pasted back from the original at hires res
+    (no drift, no visible mask seam).
+  - Webapp `/api/upload` runs `fit_to_sdxl_bucket` — every uploaded image
+    is auto-fitted to the closest SDXL bucket (1024², 1152×896, etc.) with
+    EXIF rotation applied; bucket dims are returned to the UI.
+- **Admin panel rewrite (`atelier · inference console`).** Pure black +
+  sodium amber accent, Geist + Geist Mono + Instrument Serif. Four-column
+  layout: PresetRail | composer | OutputViewer | JobQueue. Live worker
+  health proxy via `GET /api/worker-health`. Compare-lightbox with
+  drag-handle slider for input-vs-output. See `docs/admin-panel.md`.
+- Seed handling: every preset's `inject()` now treats `seed < 0` (or `None`)
+  as the "random" sentinel — fixes `KSampler` 400 when the UI default of -1
+  was passed through verbatim.
 - **Ten presets now registered.** Full warm-up of all ten takes ~30 s on
   RTX 5090 (vast.ai). `/v1/health.ready` flips to `true` once every preset
   warms successfully.
@@ -51,7 +79,9 @@ result to the user's storage, and POSTs an HMAC-signed callback.
   - `edit_premium` — FLUX.1-Kontext-dev fp8 prompt-driven semantic edit
   - `ltx_video` — LTX-Video 2B img→video
 - **Webapp + Cloudflare quick tunnel** live for browser testing (see "Webapp"
-  section).
+  section). Frontend was rewritten to the atelier-console design on 2026-05-03;
+  parameters now live in preset-aware accordions (sampling / mask / lora /
+  detailers / advanced) with monospace amber readouts.
 - Skipped for this slice, kept as a one-line enable: `--use-sage-attention`
   in `/opt/supervisor-scripts/comfyui.sh` for ~20-40 % FLUX speed. Package
   `sageattention` is already pip-installed in the ComfyUI venv.
@@ -94,10 +124,20 @@ Registered presets (`worker/presets/__init__.py`):
   uses a separate `skin_prompt` for pass 1), `structural_refiner` (unsharp
   post-process), `auto_mask` + `auto_mask_categories`. Either
   `mask_image_url` or `auto_mask=true` is required.
-- `inpaint_sdxl` / `inpaint_realvis` — subclasses of InpaintPreset sharing
-  all its plumbing; only the checkpoint (`juggernaut_xl_inpaint.safetensors`
-  / `realvisxl_v40_inpaint.safetensors`) and sampler defaults (dpmpp_2m +
-  karras, 25 / 30 steps, cfg 7 / 6.5) differ.
+- `inpaint_sdxl` — subclass of InpaintPreset sharing all its plumbing;
+  only the checkpoint (`juggernaut_xl_inpaint.safetensors`) and sampler
+  defaults (dpmpp_2m + karras, 25 steps, cfg 7) differ.
+- `inpaint_realvis` — **quality pack subclass** with extra workflow stages
+  beyond the base inpaint sampler. See `docs/quality-pack.md` for the
+  authoritative description. Pipeline: `LoraLoader×4 → KSampler →
+  composite (feathered) → SEGSDetailer (yolo26n person, optional) →
+  FaceDetailer (optional) → FaceDetailer-on-hands → 4×-UltraSharp +
+  ImageScaleBy(scale_by/4) + KSampler@hires_strength → preserve_composite
+  (mask-aware paste-back of original face/skin/background) → save`. New
+  parameters: `lora_*_weight`, `bust_emphasis`, `feather_mask_px`,
+  `person_detailer{,_strength}`, `face_detailer`, `hand_detailer`,
+  `hires_fix`, `hires_strength`, `hires_scale`, `preserve_face`. Defaults
+  tuned for natural output (cfg 5.5, LoRA weights ~0.3, hires_strength 0.22).
 - `inpaint_premium` — `Mode.IMAGE_PREMIUM`. **FLUX.1-Fill-dev fp8**
   (non-gated `dim/...` mirror) + `InpaintModelConditioning` + `FluxGuidance`
   (default 30.0). Optional `use_pose_guide` inserts `DWPreprocessor →
@@ -206,7 +246,8 @@ sed -i "s|^WORKFLOWS_PATH=.*|WORKFLOWS_PATH=/workspace/works/workflows|" .env
 source /venv/main/bin/activate   # vast.ai template's ComfyUI venv
 COMFYUI_PATH=/workspace/ComfyUI bash scripts/install_custom_nodes.sh configs/custom_nodes.yaml
 
-# Download models (~70 GB total across all ten presets, ~15–25 min at 1 Gbps)
+# Download models (~62 GB across ten presets + ~1.5 GB for quality-pack
+# LoRAs/upscaler/yolo, ~15–25 min at 1 Gbps)
 python scripts/download_models.py --models-dir /workspace/ComfyUI/models
 
 # Restart ComfyUI so it loads new custom nodes
