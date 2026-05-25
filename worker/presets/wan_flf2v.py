@@ -34,9 +34,13 @@ class WanFlf2vPreset(Preset):
         negative_prompt: str = Field(default="", max_length=4000)
         length: int = Field(default=49, ge=5, le=205)
         fps: int = Field(default=12, ge=8, le=30)
-        steps: int = Field(default=8, ge=1, le=60)
+        # LightX2V distill holds quality at few steps: 6≈32s, 4≈22s, 8≈42s @480x832.
+        # Bump to 8–12 if the transition shows ghosting/doubling on hard pairs.
+        steps: int = Field(default=6, ge=1, le=60)
         cfg: float = Field(default=1.0, ge=0.0, le=15.0)
-        shift: float = Field(default=8.0, ge=1.0, le=12.0)
+        # shift 5 (was 8): for near-identical before/after pairs a lower shift keeps
+        # the morph conservative and identity-stable; raise toward 8 for big changes.
+        shift: float = Field(default=5.0, ge=1.0, le=12.0)
         lora_strength: float = Field(default=1.0, ge=0.0, le=2.0)
         width: int = Field(default=480, ge=256, le=1280)
         height: int = Field(default=832, ge=256, le=1280)

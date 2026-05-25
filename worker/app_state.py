@@ -35,7 +35,7 @@ class AppState:
         comfyui = ComfyUIClient(http, s.comfyui_base_url)
         pools = Pools(io=8, cpu=2, gpu=1)
         mm = ModelManager(comfyui=comfyui)
-        queue = JobQueue(max_depth=s.max_queue_depth)
+        queue = JobQueue(max_depth=s.max_queue_depth, affinity_run_limit=s.affinity_run_limit)
 
         comfyui_input_dir = s.comfyui_path / "input"
         comfyui_output_dir = s.comfyui_path / "output"

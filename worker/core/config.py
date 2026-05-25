@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     max_queue_depth: int = 8
     job_timeout_sec_default: int = 300
     gpu_device: int = 0
+    # Preset-affinity scheduling: run up to N consecutive jobs of the same preset
+    # before yielding to the FIFO head, so the GPU isn't reloading a different
+    # model set every job (an i2v↔flf2v swap costs ~85s). <=1 disables (pure FIFO).
+    affinity_run_limit: int = 4
 
     # External
     hf_token: str = ""
