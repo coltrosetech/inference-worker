@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from worker.presets.base import Mode, Preset
-from worker.presets.ltx_video import LtxVideoPreset
 from worker.presets.tryon import TryonPreset
 from worker.presets.wan_flf2v import WanFlf2vPreset
+from worker.presets.wan_i2v import WanI2vPreset
 
 
 PRESETS: dict[str, Preset] = {
     p.name: p for p in (
         TryonPreset(),
-        LtxVideoPreset(),
+        WanI2vPreset(),
         WanFlf2vPreset(),
     )
 }

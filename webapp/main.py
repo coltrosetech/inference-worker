@@ -100,11 +100,11 @@ async def serve_upload(name: str):
 
 @app.post("/api/generate")
 async def generate(body: GenerateBody):
-    if body.preset not in {"tryon", "ltx_video", "wan_flf2v"}:
+    if body.preset not in {"tryon", "wan_i2v", "wan_flf2v"}:
         raise HTTPException(400, f"unknown preset {body.preset}")
 
     job_id = f"web_{uuid.uuid4().hex[:10]}"
-    ext = "mp4" if body.preset in {"ltx_video", "wan_flf2v"} else "png"
+    ext = "mp4" if body.preset in {"wan_i2v", "wan_flf2v"} else "png"
     out_name = f"{job_id}.{ext}"
 
     def u(name: str | None) -> str | None:
@@ -127,7 +127,7 @@ async def generate(body: GenerateBody):
     if body.reference_image_name:
         payload["reference_image_url"] = u(body.reference_image_name)
 
-    output_kind = "video/mp4" if body.preset in {"ltx_video", "wan_flf2v"} else "image/png"
+    output_kind = "video/mp4" if body.preset in {"wan_i2v", "wan_flf2v"} else "image/png"
     storage.register(JobRecord(
         job_id=job_id, out_name=out_name, preset=body.preset,
         status="submitting", output_kind=output_kind,

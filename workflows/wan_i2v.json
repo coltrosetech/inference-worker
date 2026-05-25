@@ -1,0 +1,119 @@
+{
+  "unet_high": {
+    "class_type": "UNETLoader",
+    "inputs": {"unet_name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors", "weight_dtype": "default"}
+  },
+  "unet_low": {
+    "class_type": "UNETLoader",
+    "inputs": {"unet_name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors", "weight_dtype": "default"}
+  },
+  "lora_high": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": ["unet_high", 0],
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "lora_low": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": ["unet_low", 0],
+      "lora_name": "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "model_sampling_high": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {"model": ["lora_high", 0], "shift": 5.0}
+  },
+  "model_sampling_low": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {"model": ["lora_low", 0], "shift": 5.0}
+  },
+  "clip": {
+    "class_type": "CLIPLoader",
+    "inputs": {"clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type": "wan", "device": "default"}
+  },
+  "vae": {
+    "class_type": "VAELoader",
+    "inputs": {"vae_name": "wan_2.1_vae.safetensors"}
+  },
+  "input_image": {
+    "class_type": "LoadImage",
+    "inputs": {"image": "placeholder.png"}
+  },
+  "positive_prompt": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {"text": "", "clip": ["clip", 0]}
+  },
+  "negative_prompt": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {"text": "", "clip": ["clip", 0]}
+  },
+  "img2video": {
+    "class_type": "WanImageToVideo",
+    "inputs": {
+      "positive": ["positive_prompt", 0],
+      "negative": ["negative_prompt", 0],
+      "vae": ["vae", 0],
+      "width": 720,
+      "height": 1280,
+      "length": 81,
+      "batch_size": 1,
+      "start_image": ["input_image", 0]
+    }
+  },
+  "sampler_high": {
+    "class_type": "KSamplerAdvanced",
+    "inputs": {
+      "model": ["model_sampling_high", 0],
+      "add_noise": "enable",
+      "noise_seed": 0,
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "positive": ["img2video", 0],
+      "negative": ["img2video", 1],
+      "latent_image": ["img2video", 2],
+      "start_at_step": 0,
+      "end_at_step": 2,
+      "return_with_leftover_noise": "enable"
+    }
+  },
+  "sampler_low": {
+    "class_type": "KSamplerAdvanced",
+    "inputs": {
+      "model": ["model_sampling_low", 0],
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "positive": ["img2video", 0],
+      "negative": ["img2video", 1],
+      "latent_image": ["sampler_high", 0],
+      "start_at_step": 2,
+      "end_at_step": 4,
+      "return_with_leftover_noise": "disable"
+    }
+  },
+  "vae_decode": {
+    "class_type": "VAEDecode",
+    "inputs": {"samples": ["sampler_low", 0], "vae": ["vae", 0]}
+  },
+  "save": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": ["vae_decode", 0],
+      "frame_rate": 16,
+      "loop_count": 0,
+      "filename_prefix": "output",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}

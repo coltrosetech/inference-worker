@@ -1,4 +1,4 @@
-export type Preset = "tryon" | "ltx_video" | "wan_flf2v";
+export type Preset = "tryon" | "wan_i2v" | "wan_flf2v";
 
 export interface UploadedFile {
   name: string;

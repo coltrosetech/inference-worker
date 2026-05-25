@@ -1,34 +1,24 @@
-# Phase 1 + Phase 2 model manifest. Each entry:
+# Model manifest for the three shipped presets (tryon · wan_i2v · wan_flf2v).
+# Each entry:
 #   name: human label (also used in logs)
 #   repo: HuggingFace repo id
 #   filename: file to download within the repo
-#   dest: path under $MODELS_PATH where the file lands (keeps ComfyUI's expected layout)
-#   sha256: SHA-256 of the downloaded file (verified; empty string skips)
-#   size_mb: expected size in MB (used for sanity checks + progress)
+#   dest: path under $MODELS_PATH where the file lands (mirrors ComfyUI's layout)
+#   sha256: SHA-256 of the file (verified; empty string skips)
+#   size_mb: expected size in MB (sanity check + progress)
 #
-# Paths mirror ComfyUI's models/ subfolders so symlinks just work.
+# Provision a fresh box with: python scripts/download_models.py
+# NOTE: Leffa (Faz 3 try-on) is NOT listed here — its ComfyUI node pulls its own
+# weights into $MODELS_PATH/Leffa via snapshot_download.
 
 models:
-  - name: JuggernautXL Lightning 4-step
-    repo: RunDiffusion/Juggernaut-XL-Lightning
-    filename: Juggernaut_RunDiffusionPhoto2_Lightning_4Steps.safetensors
-    dest: checkpoints/Juggernaut_RunDiffusionPhoto2_Lightning_4Steps.safetensors
+  # ===== tryon (JuggernautXL Inpaint + IP-Adapter Plus + auto-mask + hires) =====
+  - name: JuggernautXL Inpaint
+    repo: modelzpalace/juggernautInpaint
+    filename: juggernautXL_versionXInpaint.safetensors
+    dest: checkpoints/juggernaut_xl_inpaint.safetensors
     sha256: ""
-    size_mb: 6617
-
-  - name: SDXL VAE fp16 fix
-    repo: madebyollin/sdxl-vae-fp16-fix
-    filename: sdxl_vae.safetensors
-    dest: vae/sdxl_vae_fp16_fix.safetensors
-    sha256: ""
-    size_mb: 320
-
-  - name: SDXL LCM LoRA
-    repo: latent-consistency/lcm-lora-sdxl
-    filename: pytorch_lora_weights.safetensors
-    dest: loras/lcm_lora_sdxl.safetensors
-    sha256: ""
-    size_mb: 394
+    size_mb: 6937
 
   - name: IP-Adapter Plus SDXL
     repo: h94/IP-Adapter
@@ -42,86 +32,8 @@ models:
     filename: models/image_encoder/model.safetensors
     dest: clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors
     sha256: ""
-    size_mb: 1264
+    size_mb: 2528
 
-  # ===== Phase 2: controlnet =====
-  - name: ControlNet Union SDXL ProMax
-    repo: xinsir/controlnet-union-sdxl-1.0
-    filename: diffusion_pytorch_model_promax.safetensors
-    dest: controlnet/cn_union_sdxl_promax.safetensors
-    sha256: ""
-    size_mb: 2506
-
-  # ===== Phase 2: ltx_video =====
-  - name: LTX-Video 2B 0.9.8 distilled fp8
-    repo: Lightricks/LTX-Video
-    filename: ltxv-2b-0.9.8-distilled-fp8.safetensors
-    dest: checkpoints/ltxv_2b_0_9_8_distilled_fp8.safetensors
-    sha256: ""
-    size_mb: 4500
-
-  - name: T5-XXL fp8 encoder
-    repo: comfyanonymous/flux_text_encoders
-    filename: t5xxl_fp8_e4m3fn.safetensors
-    dest: text_encoders/t5xxl_fp8_e4m3fn.safetensors
-    sha256: ""
-    size_mb: 4890
-
-  # ===== Phase 2: edit_premium (FLUX.1-Kontext) =====
-  - name: FLUX.1-Kontext-dev fp8 scaled
-    repo: Comfy-Org/flux1-kontext-dev_ComfyUI
-    filename: split_files/diffusion_models/flux1-dev-kontext_fp8_scaled.safetensors
-    dest: diffusion_models/flux_kontext_dev_fp8_scaled.safetensors
-    sha256: ""
-    size_mb: 11900
-
-  # ===== inpaint_premium (FLUX.1-Fill-dev) =====
-  - name: FLUX.1-Fill-dev fp8
-    repo: dim/black-forest-labs_FLUX.1-Fill-dev_flux1-fill-dev_fp8.safetensors
-    filename: black-forest-labs_FLUX.1-Fill-dev_flux1-fill-dev_fp8.safetensors
-    dest: diffusion_models/flux_fill_dev_fp8.safetensors
-    sha256: ""
-    size_mb: 11900
-
-  # ===== inpaint_sdxl (JuggernautXL Inpaint) =====
-  - name: JuggernautXL Inpaint
-    repo: modelzpalace/juggernautInpaint
-    filename: juggernautXL_versionXInpaint.safetensors
-    dest: checkpoints/juggernaut_xl_inpaint.safetensors
-    sha256: ""
-    size_mb: 6937
-
-  # ===== inpaint_realvis (RealVisXL V4 Inpaint) =====
-  - name: RealVisXL V4.0 Inpaint
-    repo: henrysasse193/realvisxlInpainting_v40-inpainting
-    filename: realvisxlInpainting_v40-inpainting.safetensors
-    dest: checkpoints/realvisxl_v40_inpaint.safetensors
-    sha256: ""
-    size_mb: 6937
-
-  # ===== ControlNet Pose guard for inpaint_premium =====
-  - name: FLUX.1-dev ControlNet Union Pro 2.0 fp8
-    repo: ABDALLALSWAITI/FLUX.1-dev-ControlNet-Union-Pro-2.0-fp8
-    filename: diffusion_pytorch_model.safetensors
-    dest: controlnet/flux_controlnet_union_pro_2_fp8.safetensors
-    sha256: ""
-    size_mb: 2140
-
-  - name: FLUX VAE (ae)
-    repo: ffxvs/vae-flux
-    filename: ae.safetensors
-    dest: vae/flux_ae.safetensors
-    sha256: ""
-    size_mb: 335
-
-  - name: CLIP-L (FLUX text encoder)
-    repo: comfyanonymous/flux_text_encoders
-    filename: clip_l.safetensors
-    dest: text_encoders/clip_l.safetensors
-    sha256: ""
-    size_mb: 246
-
-  # ===== Auto clothing segmentation (inpaint auto-mask) =====
   - name: SegFormer-B2 Clothes weights
     repo: mattmdjaga/segformer_b2_clothes
     filename: model.safetensors
@@ -143,66 +55,75 @@ models:
     sha256: ""
     size_mb: 1
 
-  # ===== Quality pack B (inpaint_realvis upgrade) =====
-  - name: Add Detail XL LoRA
-    repo: PvDeep/Add-Detail-XL
-    filename: add-detail-xl.safetensors
-    dest: loras/add_detail_xl.safetensors
-    sha256: ""
-    size_mb: 232
-
-  - name: Realistic Skin Texture v5 LoRA
-    repo: Jonjew/RealisticSkin
-    filename: skin texture style v5.safetensors
-    dest: loras/realistic_skin_v5.safetensors
-    sha256: ""
-    size_mb: 228
-
-  - name: Body Details XL LoRA
-    repo: NicoEmb/BodyEnhancement-LoRAs
-    filename: 307mb_bodydetails.safetensors
-    dest: loras/body_details_xl.safetensors
-    sha256: ""
-    size_mb: 307
-
-  - name: Body Proportion XL LoRA
-    repo: NicoEmb/BodyEnhancement-LoRAs
-    filename: 10mb_bodyproportion.safetensors
-    dest: loras/body_proportion_xl.safetensors
-    sha256: ""
-    size_mb: 10
-
-  - name: 4x-UltraSharp ESRGAN
+  - name: 4x-UltraSharp ESRGAN (tryon hires-fix)
     repo: lokCX/4x-Ultrasharp
     filename: 4x-UltraSharp.pth
     dest: upscale_models/4x-UltraSharp.pth
     sha256: ""
     size_mb: 64
 
-  - name: face_yolov8m bbox detector
-    repo: Bingsu/adetailer
-    filename: face_yolov8m.pt
-    dest: ultralytics/bbox/face_yolov8m.pt
+  # ===== shared Wan text encoder + VAE + clip vision (wan_i2v & wan_flf2v) =====
+  - name: Wan umt5-xxl fp8 text encoder
+    repo: Comfy-Org/Wan_2.1_ComfyUI_repackaged
+    filename: split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors
+    dest: text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors
     sha256: ""
-    size_mb: 52
+    size_mb: 6736
 
-  - name: hand_yolov8s bbox detector
-    repo: Bingsu/adetailer
-    filename: hand_yolov8s.pt
-    dest: ultralytics/bbox/hand_yolov8s.pt
+  - name: Wan 2.1 VAE
+    repo: Comfy-Org/Wan_2.1_ComfyUI_repackaged
+    filename: split_files/vae/wan_2.1_vae.safetensors
+    dest: vae/wan_2.1_vae.safetensors
     sha256: ""
-    size_mb: 22
+    size_mb: 254
 
-  - name: YOLO26n person/object detector
-    repo: Ultralytics/YOLO26
-    filename: yolo26n.pt
-    dest: ultralytics/bbox/yolo26n.pt
+  - name: Wan CLIP vision H (wan_flf2v)
+    repo: Comfy-Org/Wan_2.1_ComfyUI_repackaged
+    filename: split_files/clip_vision/clip_vision_h.safetensors
+    dest: clip_vision/clip_vision_h.safetensors
     sha256: ""
-    size_mb: 6
+    size_mb: 1264
 
-  - name: Curvy Body SDXL LoRA
-    repo: G858/curvy-body-sdxl-lora
-    filename: curvy-body-sdxl.safetensors
-    dest: loras/curvy_body_xl.safetensors
+  # ===== wan_i2v (Wan 2.2 I2V 14B MoE + LightX2V 4-step) =====
+  - name: Wan 2.2 I2V 14B high-noise fp8
+    repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged
+    filename: split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors
+    dest: diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors
     sha256: ""
-    size_mb: 230
+    size_mb: 14295
+
+  - name: Wan 2.2 I2V 14B low-noise fp8
+    repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged
+    filename: split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors
+    dest: diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors
+    sha256: ""
+    size_mb: 14295
+
+  - name: Wan 2.2 I2V LightX2V 4-step LoRA (high-noise)
+    repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged
+    filename: split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors
+    dest: loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors
+    sha256: ""
+    size_mb: 1227
+
+  - name: Wan 2.2 I2V LightX2V 4-step LoRA (low-noise)
+    repo: Comfy-Org/Wan_2.2_ComfyUI_Repackaged
+    filename: split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors
+    dest: loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors
+    sha256: ""
+    size_mb: 1227
+
+  # ===== wan_flf2v (Wan 2.1 FLF2V 14B + LightX2V distill) =====
+  - name: Wan 2.1 FLF2V 720p 14B fp8
+    repo: Comfy-Org/Wan_2.1_ComfyUI_repackaged
+    filename: split_files/diffusion_models/wan2.1_flf2v_720p_14B_fp8_e4m3fn.safetensors
+    dest: diffusion_models/wan2.1_flf2v_720p_14B_fp8_e4m3fn.safetensors
+    sha256: ""
+    size_mb: 16398
+
+  - name: LightX2V I2V 14B 480p distill LoRA rank64 (wan_flf2v)
+    repo: Kijai/WanVideo_comfy
+    filename: Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors
+    dest: loras/lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors
+    sha256: ""
+    size_mb: 738

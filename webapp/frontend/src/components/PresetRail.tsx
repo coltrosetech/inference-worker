@@ -11,7 +11,7 @@ type PresetMeta = {
 
 export const PRESETS: PresetMeta[] = [
   { value: "tryon", label: "Try-on (gelinlik)", desc: "virtual try-on · IP-Adapter · hires-fix", group: "image" },
-  { value: "ltx_video", label: "Video (animasyon)", desc: "image→video · LTX-Video 13B", group: "video" },
+  { value: "wan_i2v", label: "Video (animasyon)", desc: "image→video · Wan 2.2 I2V 14B", group: "video" },
   { value: "wan_flf2v", label: "Video (giyme geçişi)", desc: "start→end · Wan 2.1 FLF2V 14B", group: "video" },
 ];
 

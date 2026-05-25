@@ -2,13 +2,6 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Preset } from "@/lib/api";
 
@@ -26,14 +19,13 @@ export interface PresetParams {
   hires_fix?: boolean;
   hires_strength?: number;
   hires_scale?: number;
-  // ltx_video (image→video)
-  num_frames?: 25 | 49 | 97 | 121 | 169 | 241;
+  // video presets (wan_i2v image→video, wan_flf2v start→end frame)
   fps?: number;
   width?: number;
   height?: number;
-  // wan_flf2v (start→end frame video)
-  length?: number;
+  length?: number; // 4n+1
   shift?: number;
+  lora_strength?: number;
 }
 
 export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
@@ -51,24 +43,25 @@ export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
     hires_strength: 0.25,
     hires_scale: 1.5,
   },
-  ltx_video: {
-    prompt: "the woman in the wedding gown turns gently, fabric flows, soft cinematic motion",
+  wan_i2v: {
+    prompt: "the woman in the wedding gown turns gently, fabric flows, soft cinematic motion, photorealistic, consistent face",
     negative_prompt: "",
-    steps: 8,
+    steps: 4,
     cfg: 1.0,
-    num_frames: 169, // ≈7s @ 24fps
-    fps: 24,
-    width: 1024,
-    height: 576,
+    shift: 5.0,
+    length: 81, // 4n+1; ≈5s @ 16fps
+    fps: 16,
+    width: 720,
+    height: 1280,
   },
   wan_flf2v: {
     prompt: "the woman puts on the jacket with a slow, gentle, smooth natural motion, cinematic, photorealistic, consistent face",
     negative_prompt: "blurry, distorted, deformed face, morphing face, extra limbs, flickering, jitter, low quality, fast chaotic motion, nudity",
     length: 49, // 4n+1; ≈4s @ 12fps (soft)
     fps: 12,
-    steps: 8,
+    steps: 6, // LightX2V holds at few steps; ≈32s @480x832 (4≈22s, 8≈42s)
     cfg: 1.0,
-    shift: 8.0,
+    shift: 5.0, // lower shift = identity-stable morph for near-identical pairs
     width: 480,
     height: 832,
   },
@@ -316,45 +309,43 @@ export function PresetForm({
     );
   }
 
-  if (preset === "ltx_video") {
+  if (preset === "wan_i2v") {
     return (
       <div className="space-y-2.5">
-        <Group title="video" defaultOpen>
+        <Group title="video · image→video" defaultOpen>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <span className="font-mono text-[11px] text-foreground/85">num_frames</span>
-              <Select
-                value={String(params.num_frames)}
-                onValueChange={(v) =>
-                  u("num_frames", Number(v) as NonNullable<PresetParams["num_frames"]>)
-                }
-              >
-                <SelectTrigger className="bg-surface-2 font-mono text-[12px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[25, 49, 97, 121, 169, 241].map((n) => (
-                    <SelectItem key={n} value={String(n)} className="font-mono">
-                      {n} ({(n / (params.fps || 24)).toFixed(1)}s)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <NumberRow label="fps" value={params.fps} onChange={(v) => u("fps", v)} min={8} max={60} />
-            <NumberRow label="width" value={params.width} onChange={(v) => u("width", v)} min={256} max={1216} step={32} />
-            <NumberRow label="height" value={params.height} onChange={(v) => u("height", v)} min={256} max={1216} step={32} />
+            <NumberRow
+              label="length (4n+1)"
+              value={params.length}
+              onChange={(v) => u("length", v)}
+              min={5}
+              max={205}
+              step={4}
+              hint={`≈${((params.length || 81) / (params.fps || 16)).toFixed(1)}s @ ${params.fps || 16}fps`}
+            />
+            <NumberRow label="fps" value={params.fps} onChange={(v) => u("fps", v)} min={8} max={30} />
+            <NumberRow label="width (÷16)" value={params.width} onChange={(v) => u("width", v)} min={256} max={1280} step={16} />
+            <NumberRow label="height (÷16)" value={params.height} onChange={(v) => u("height", v)} min={256} max={1280} step={16} />
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Girdi olarak try-on çıktısını yükle — LTX-Video onu canlandırır.
+            Girdi olarak try-on çıktısını yükle — Wan 2.2 I2V onu canlandırır.
           </p>
         </Group>
 
         <Group title="sampling">
           <div className="grid grid-cols-2 gap-3">
-            <NumberRow label="steps" value={params.steps} onChange={(v) => u("steps", v)} min={1} max={100} />
-            <NumberRow label="cfg" value={params.cfg} onChange={(v) => u("cfg", v)} min={0} max={20} step={0.1} />
+            <NumberRow label="steps" value={params.steps} onChange={(v) => u("steps", v)} min={2} max={60} />
+            <NumberRow label="cfg" value={params.cfg} onChange={(v) => u("cfg", v)} min={0} max={15} step={0.1} />
           </div>
+          <SliderRow
+            label="shift"
+            value={params.shift}
+            onChange={(v) => u("shift", v)}
+            min={1}
+            max={12}
+            step={0.5}
+            hint="temporal shift (4-step LightX2V → cfg≈1)"
+          />
         </Group>
       </div>
     );

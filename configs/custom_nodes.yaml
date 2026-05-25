@@ -1,48 +1,22 @@
-# Phase 1 + Phase 2 custom nodes. Each entry:
-#   name: label
+# ComfyUI custom nodes required by the three shipped presets. Each entry:
+#   name: label (also the install dir under custom_nodes/)
 #   repo: git URL (https)
 #   ref: git ref (commit sha, tag, or branch). Pin to sha for reproducibility.
 #   post_install: optional shell command run inside the node directory
+#
+# Install with: bash scripts/install_custom_nodes.sh
+# Everything else used by the workflows (GrowMask, ImageCompositeMasked, UNETLoader,
+# WanImageToVideo, WanFirstLastFrameToVideo, KSamplerAdvanced, ModelSamplingSD3, ...)
+# ships in ComfyUI core. Leffa (Faz 3 try-on upgrade) will add its own node here.
 nodes:
-  - name: IPAdapter_plus
+  # tryon: IPAdapterUnifiedLoader + IPAdapterAdvanced
+  - name: ComfyUI_IPAdapter_plus
     repo: https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
     ref: main
-    post_install: "python -m pip install -r requirements.txt || true"
+    post_install: "test -f requirements.txt && python -m pip install -r requirements.txt || true"
 
-  - name: tooling-nodes
-    repo: https://github.com/Acly/comfyui-tooling-nodes.git
-    ref: main
-    post_install: "python -m pip install -r requirements.txt || true"
-
-  - name: KJNodes
-    repo: https://github.com/kijai/ComfyUI-KJNodes.git
-    ref: main
-    post_install: "python -m pip install -r requirements.txt || true"
-
-  # ===== Phase 2: controlnet =====
-  - name: Advanced-ControlNet
-    repo: https://github.com/Kosinkadink/ComfyUI-Advanced-ControlNet.git
-    ref: main
-    post_install: "python -m pip install -r requirements.txt || true"
-
-  - name: controlnet_aux
-    repo: https://github.com/Fannovel16/comfyui_controlnet_aux.git
-    ref: main
-    post_install: "python -m pip install -r requirements.txt || true"
-
-  # ===== Phase 2: ltx_video =====
-  - name: LTXVideo
-    repo: https://github.com/Lightricks/ComfyUI-LTXVideo.git
-    ref: master
-    post_install: "python -m pip install -r requirements.txt || true"
-
-  - name: VideoHelperSuite
+  # wan_i2v + wan_flf2v: VHS_VideoCombine (mp4 muxing)
+  - name: ComfyUI-VideoHelperSuite
     repo: https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git
     ref: main
-    post_install: "python -m pip install -r requirements.txt || true"
-
-  # No ComfyUI segmentation node is installed: clothing auto-mask is produced
-  # by scripts/segment_clothing.py (transformers + torch in the ComfyUI venv)
-  # before the inpaint workflow runs. See worker/io/segmentation.py.
-  # Model weights (mattmdjaga/segformer_b2_clothes) still come from
-  # configs/models.yaml and live at $MODELS_PATH/segformer_b2_clothes/.
+    post_install: "test -f requirements.txt && python -m pip install -r requirements.txt || true"

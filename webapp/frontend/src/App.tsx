@@ -32,9 +32,9 @@ export default function App() {
   const meta = useMemo(() => presetMeta(preset), [preset]);
 
   // Try-on needs garment reference + clothing mask (auto-mask satisfies it);
-  // ltx_video only animates the input image; wan_flf2v needs an END frame.
+  // wan_i2v only animates the input image; wan_flf2v needs an END frame.
   const presetReq =
-    preset === "ltx_video"
+    preset === "wan_i2v"
       ? { needsRef: false, needsMask: false }
       : preset === "wan_flf2v"
       ? { needsRef: true, needsMask: false }
@@ -46,12 +46,12 @@ export default function App() {
     setSubmitErr(null);
   };
 
-  // LTX-Video: match output aspect to the uploaded image (long side ~1024, /32).
+  // Wan 2.2 I2V: match output aspect to the uploaded image (long side ~1024, /16).
   useEffect(() => {
-    if (preset !== "ltx_video" || !inputBucket) return;
+    if (preset !== "wan_i2v" || !inputBucket) return;
     const [iw, ih] = inputBucket;
     const long = 1024;
-    const snap = (n: number) => Math.max(256, Math.min(1216, Math.round(n / 32) * 32));
+    const snap = (n: number) => Math.max(256, Math.min(1280, Math.round(n / 16) * 16));
     const [w, h] = iw >= ih ? [long, (long * ih) / iw] : [(long * iw) / ih, long];
     const nw = snap(w);
     const nh = snap(h);
@@ -90,7 +90,7 @@ export default function App() {
         mask_image_name: maskName ?? undefined,
         reference_image_name: refName ?? undefined,
         parameters,
-        timeout_sec: preset === "wan_flf2v" ? 1200 : preset === "ltx_video" ? 600 : 300,
+        timeout_sec: preset === "wan_flf2v" ? 1200 : preset === "wan_i2v" ? 600 : 300,
       });
       if (r.status === "failed") {
         setSubmitErr("worker rejected the request");
