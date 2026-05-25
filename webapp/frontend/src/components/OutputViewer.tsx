@@ -9,7 +9,7 @@ import {
   Loader2,
   Maximize2,
 } from "lucide-react";
-import { getJob, type JobState, presetUrl } from "@/lib/api";
+import { getJob, getProgress, type JobState, type SamplingProgress, presetUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -21,11 +21,13 @@ interface Props {
 
 export function OutputViewer({ jobId, inputName, onRetry, onLightbox }: Props) {
   const [job, setJob] = useState<JobState | null>(null);
+  const [prog, setProg] = useState<SamplingProgress | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!jobId) {
       setJob(null);
+      setProg(null);
       return;
     }
     let stopped = false;
@@ -33,11 +35,20 @@ export function OutputViewer({ jobId, inputName, onRetry, onLightbox }: Props) {
       try {
         const j = await getJob(jobId);
         if (!stopped) setJob(j);
-        if (j.status === "success" || j.status === "failed") return;
+        if (j.status === "success" || j.status === "failed") {
+          if (!stopped) setProg(null);
+          return;
+        }
       } catch {
         /* ignore */
       }
-      if (!stopped) setTimeout(fetchJob, 1500);
+      try {
+        const p = await getProgress();
+        if (!stopped) setProg(p);
+      } catch {
+        /* ignore */
+      }
+      if (!stopped) setTimeout(fetchJob, 1000);
     };
     fetchJob();
     return () => {
@@ -118,7 +129,24 @@ export function OutputViewer({ jobId, inputName, onRetry, onLightbox }: Props) {
             <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-warning">
               inference in progress
             </div>
-            <ShimmerBar />
+            {prog && prog.step != null && prog.total != null ? (
+              <div className="w-64 space-y-1">
+                <div className="flex items-baseline justify-between font-mono text-[11px]">
+                  <span className="text-foreground/85">step {prog.step}/{prog.total}</span>
+                  {prog.detail && (
+                    <span className="text-muted-foreground tabular-nums">{prog.detail}</span>
+                  )}
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-3">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${Math.round((prog.step / prog.total) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <ShimmerBar />
+            )}
             {Object.keys(job.stages_ms || {}).length > 0 && (
               <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2">
                 {Object.entries(job.stages_ms).map(([k, ms]) => (

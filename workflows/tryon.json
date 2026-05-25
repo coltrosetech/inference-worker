@@ -91,8 +91,43 @@
       "mask": ["grow_mask", 0]
     }
   },
+  "upscale_loader": {
+    "class_type": "UpscaleModelLoader",
+    "inputs": {"model_name": "4x-UltraSharp.pth"}
+  },
+  "hires_upscale": {
+    "class_type": "ImageUpscaleWithModel",
+    "inputs": {"upscale_model": ["upscale_loader", 0], "image": ["composite", 0]}
+  },
+  "hires_scale_down": {
+    "class_type": "ImageScaleBy",
+    "inputs": {"image": ["hires_upscale", 0], "upscale_method": "lanczos", "scale_by": 0.375}
+  },
+  "hires_encode": {
+    "class_type": "VAEEncode",
+    "inputs": {"pixels": ["hires_scale_down", 0], "vae": ["checkpoint", 2]}
+  },
+  "hires_sampler": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 16,
+      "cfg": 7.0,
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "denoise": 0.25,
+      "model": ["ipadapter_apply", 0],
+      "positive": ["positive_prompt", 0],
+      "negative": ["negative_prompt", 0],
+      "latent_image": ["hires_encode", 0]
+    }
+  },
+  "hires_decode": {
+    "class_type": "VAEDecode",
+    "inputs": {"samples": ["hires_sampler", 0], "vae": ["checkpoint", 2]}
+  },
   "save": {
     "class_type": "SaveImage",
-    "inputs": {"filename_prefix": "output", "images": ["composite", 0]}
+    "inputs": {"filename_prefix": "output", "images": ["hires_decode", 0]}
   }
 }

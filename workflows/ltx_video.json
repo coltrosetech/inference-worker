@@ -1,7 +1,7 @@
 {
   "checkpoint": {
     "class_type": "CheckpointLoaderSimple",
-    "inputs": {"ckpt_name": "ltxv_2b_0_9_8_distilled_fp8.safetensors"}
+    "inputs": {"ckpt_name": "ltxv-13b-0.9.8-distilled-fp8.safetensors"}
   },
   "clip_loader": {
     "class_type": "CLIPLoader",

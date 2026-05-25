@@ -1,14 +1,4 @@
-export type Preset =
-  | "edit"
-  | "style"
-  | "controlnet"
-  | "inpaint"
-  | "inpaint_sdxl"
-  | "inpaint_realvis"
-  | "tryon"
-  | "edit_premium"
-  | "inpaint_premium"
-  | "ltx_video";
+export type Preset = "tryon" | "ltx_video" | "wan_flf2v";
 
 export interface UploadedFile {
   name: string;
@@ -95,6 +85,17 @@ export async function getJob(job_id: string): Promise<JobState> {
 
 export async function listJobs(limit = 20): Promise<JobState[]> {
   return jsonOrThrow<JobState[]>(await fetch(`/api/jobs?limit=${limit}`));
+}
+
+export interface SamplingProgress {
+  running: number;
+  step: number | null;
+  total: number | null;
+  detail: string;
+}
+
+export async function getProgress(): Promise<SamplingProgress> {
+  return jsonOrThrow<SamplingProgress>(await fetch(`/api/progress`));
 }
 
 export async function getHealth(): Promise<HealthState> {

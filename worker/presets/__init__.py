@@ -1,30 +1,16 @@
 from __future__ import annotations
 
 from worker.presets.base import Mode, Preset
-from worker.presets.controlnet import ControlnetPreset
-from worker.presets.edit import EditPreset
-from worker.presets.edit_premium import EditPremiumPreset
-from worker.presets.inpaint import InpaintPreset
-from worker.presets.inpaint_premium import InpaintPremiumPreset
-from worker.presets.inpaint_realvis import InpaintRealvisPreset
-from worker.presets.inpaint_sdxl import InpaintSdxlPreset
 from worker.presets.ltx_video import LtxVideoPreset
-from worker.presets.style import StylePreset
 from worker.presets.tryon import TryonPreset
+from worker.presets.wan_flf2v import WanFlf2vPreset
 
 
 PRESETS: dict[str, Preset] = {
     p.name: p for p in (
-        EditPreset(),
-        StylePreset(),
-        ControlnetPreset(),
-        InpaintPreset(),
-        InpaintSdxlPreset(),
-        InpaintRealvisPreset(),
         TryonPreset(),
-        EditPremiumPreset(),
-        InpaintPremiumPreset(),
         LtxVideoPreset(),
+        WanFlf2vPreset(),
     )
 }
 

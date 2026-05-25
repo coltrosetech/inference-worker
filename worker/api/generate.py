@@ -38,13 +38,7 @@ def _get_queue_and_settings(request: Request):
 class GenerateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     job_id: str = Field(..., min_length=1, max_length=128)
-    preset: Literal[
-        "edit", "style", "controlnet",
-        "inpaint", "inpaint_sdxl", "inpaint_realvis", "inpaint_premium",
-        "tryon",
-        "edit_premium",
-        "ltx_video",
-    ]
+    preset: Literal["tryon", "ltx_video", "wan_flf2v"]
     prompt: str = Field("", max_length=4000)
     negative_prompt: str = Field("", max_length=4000)
     input_image_url: str
@@ -89,19 +83,25 @@ async def generate(
             detail={"code": "INVALID_PARAMETERS", "errors": e.errors()},
         ) from e
 
-    if req.preset in ("style", "tryon") and not req.reference_image_url:
+    if req.preset == "wan_flf2v" and not req.reference_image_url:
         raise HTTPException(
             status_code=400,
-            detail={"code": "INVALID_PARAMETERS", "message": "style preset requires reference_image_url"},
+            detail={"code": "INVALID_PARAMETERS", "message": "wan_flf2v requires reference_image_url (the END frame)"},
         )
-    if req.preset in ("inpaint", "inpaint_sdxl", "inpaint_realvis", "inpaint_premium", "tryon") and not req.mask_image_url and not req.parameters.get("auto_mask"):
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "INVALID_PARAMETERS",
-                "message": f"{req.preset} preset requires mask_image_url or parameters.auto_mask=true",
-            },
-        )
+    if req.preset == "tryon":
+        if not req.reference_image_url:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INVALID_PARAMETERS", "message": "tryon preset requires reference_image_url (the target garment)"},
+            )
+        if not req.mask_image_url and not req.parameters.get("auto_mask"):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "INVALID_PARAMETERS",
+                    "message": "tryon preset requires mask_image_url or parameters.auto_mask=true",
+                },
+            )
 
     queue, settings = _get_queue_and_settings(request)
     job = Job(job_id=req.job_id, preset=req.preset, raw_request=req.model_dump())

@@ -19,8 +19,10 @@ def test_cancel_queued_job(monkeypatch, tmp_path):
     c = _client(monkeypatch, tmp_path)
     hdrs = {"Authorization": f"Bearer {'k'*32}", "Idempotency-Key": "j"}
     payload = {
-        "job_id": "j", "preset": "edit", "prompt": "x",
-        "input_image_url": "https://x/i.png", "callback_url": "https://b/cb",
+        "job_id": "j", "preset": "tryon", "prompt": "x",
+        "input_image_url": "https://x/i.png", "reference_image_url": "https://x/g.png",
+        "parameters": {"auto_mask": True},
+        "callback_url": "https://b/cb",
         "upload_url": "https://s/o", "upload_method": "PUT",
     }
     assert c.post("/v1/generate", json=payload, headers=hdrs).status_code == 202

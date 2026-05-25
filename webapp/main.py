@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import uuid
 from pathlib import Path
@@ -10,7 +11,7 @@ from typing import Any
 import httpx
 import io
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps
 from pydantic import BaseModel, Field
@@ -99,17 +100,11 @@ async def serve_upload(name: str):
 
 @app.post("/api/generate")
 async def generate(body: GenerateBody):
-    if body.preset not in {
-        "edit", "style", "controlnet",
-        "inpaint", "inpaint_sdxl", "inpaint_realvis", "inpaint_premium",
-        "tryon",
-        "edit_premium",
-        "ltx_video",
-    }:
+    if body.preset not in {"tryon", "ltx_video", "wan_flf2v"}:
         raise HTTPException(400, f"unknown preset {body.preset}")
 
     job_id = f"web_{uuid.uuid4().hex[:10]}"
-    ext = "mp4" if body.preset == "ltx_video" else "png"
+    ext = "mp4" if body.preset in {"ltx_video", "wan_flf2v"} else "png"
     out_name = f"{job_id}.{ext}"
 
     def u(name: str | None) -> str | None:
@@ -132,7 +127,7 @@ async def generate(body: GenerateBody):
     if body.reference_image_name:
         payload["reference_image_url"] = u(body.reference_image_name)
 
-    output_kind = "video/mp4" if body.preset == "ltx_video" else "image/png"
+    output_kind = "video/mp4" if body.preset in {"ltx_video", "wan_flf2v"} else "image/png"
     storage.register(JobRecord(
         job_id=job_id, out_name=out_name, preset=body.preset,
         status="submitting", output_kind=output_kind,
@@ -232,6 +227,79 @@ async def worker_health():
         return JSONResponse(
             {"ok": False, "ready": False, "error": str(e)}, status_code=503,
         )
+
+
+# --- live sampling progress (reads ComfyUI queue + log tail) ------------------
+_COMFY_BASE = f"http://{os.environ.get('COMFYUI_HOST', '127.0.0.1')}:{os.environ.get('COMFYUI_INTERNAL_PORT', '18188')}"
+_COMFY_LOG = os.environ.get("COMFYUI_LOG", "/var/log/portal/comfyui.log")
+_STEP_RE = re.compile(r"(\d+)/(\d+)\s*\[([^\]]*)\]")
+
+
+@app.get("/api/progress")
+async def progress():
+    """Live sampling progress for the running job: ComfyUI queue + tqdm step
+    line from its log so the UI can show 'step X/Y' in real time."""
+    running = 0
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            q = (await client.get(f"{_COMFY_BASE}/queue")).json()
+        running = len(q.get("queue_running", []))
+    except Exception:
+        pass
+    step = total = None
+    detail = ""
+    try:
+        with open(_COMFY_LOG, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 8192))
+            tail = f.read().decode("utf-8", "replace")
+        for chunk in reversed(re.split(r"[\r\n]", tail)):
+            m = _STEP_RE.search(chunk)
+            if m:
+                step, total, detail = int(m.group(1)), int(m.group(2)), m.group(3).strip()
+                break
+    except Exception:
+        pass
+    return {"running": running, "step": step, "total": total, "detail": detail}
+
+
+# --- docs viewer (renders docs/SAFE_MODE.md in the browser) -------------------
+_DOCS_DIR = Path(__file__).parent.parent / "docs"
+
+
+@app.get("/docs/safe-mode.md")
+async def safe_mode_md():
+    p = _DOCS_DIR / "SAFE_MODE.md"
+    if not p.exists():
+        raise HTTPException(404, "SAFE_MODE.md not found")
+    return FileResponse(p, media_type="text/markdown; charset=utf-8")
+
+
+@app.get("/docs/safe-mode", response_class=HTMLResponse)
+async def safe_mode_page():
+    return """<!doctype html><html lang="tr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAFE MODE — inference-worker</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  body{margin:0;background:#0e0f12;color:#e6e6e6;font:15px/1.65 -apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:860px;margin:0 auto;padding:40px 24px 80px}
+  h1,h2,h3{line-height:1.25} h1{border-bottom:1px solid #2a2c31;padding-bottom:.3em}
+  h2{margin-top:2em;border-bottom:1px solid #23252a;padding-bottom:.25em}
+  code{background:#1b1d22;padding:.15em .4em;border-radius:4px;font-size:.88em}
+  pre{background:#15171b;padding:14px;border-radius:8px;overflow:auto}
+  pre code{background:none;padding:0}
+  a{color:#f5b942} table{border-collapse:collapse;width:100%;margin:1em 0}
+  th,td{border:1px solid #2a2c31;padding:8px 10px;text-align:left;font-size:.92em}
+  th{background:#1b1d22} blockquote{border-left:3px solid #f5b942;margin:1em 0;padding:.2em 1em;color:#b9b9b9}
+  hr{border:none;border-top:1px solid #23252a;margin:2em 0}
+</style></head><body><div class="wrap" id="content">yükleniyor…</div>
+<script>
+fetch('/docs/safe-mode.md').then(r=>r.text()).then(md=>{
+  document.getElementById('content').innerHTML = marked.parse(md);
+}).catch(e=>{document.getElementById('content').textContent='hata: '+e});
+</script></body></html>"""
 
 
 # --- static frontend (Vite build output) -------------------------------------

@@ -10,16 +10,9 @@ type PresetMeta = {
 };
 
 export const PRESETS: PresetMeta[] = [
-  { value: "edit", label: "edit", desc: "img2img · IP-Adapter", group: "image" },
-  { value: "style", label: "style", desc: "style transfer · IP-Adapter", group: "image" },
-  { value: "controlnet", label: "controlnet", desc: "canny · depth · pose", group: "image" },
-  { value: "inpaint", label: "inpaint", desc: "SDXL Lightning · 6 step", group: "image" },
-  { value: "inpaint_sdxl", label: "inpaint_sdxl", desc: "JuggernautXL Inpaint v9", group: "image" },
-  { value: "inpaint_realvis", label: "inpaint_realvis", desc: "RealVisXL · LoRA stack · detailers", group: "image" },
-  { value: "tryon", label: "tryon", desc: "virtual try-on · IP-Adapter", group: "image" },
-  { value: "edit_premium", label: "edit_premium", desc: "FLUX.1-Kontext fp8", group: "image", premium: true },
-  { value: "inpaint_premium", label: "inpaint_premium", desc: "FLUX.1-Fill-dev fp8", group: "image", premium: true },
-  { value: "ltx_video", label: "ltx_video", desc: "LTX-Video img→video", group: "video", premium: true },
+  { value: "tryon", label: "Try-on (gelinlik)", desc: "virtual try-on · IP-Adapter · hires-fix", group: "image" },
+  { value: "ltx_video", label: "Video (animasyon)", desc: "image→video · LTX-Video 13B", group: "video" },
+  { value: "wan_flf2v", label: "Video (giyme geçişi)", desc: "start→end · Wan 2.1 FLF2V 14B", group: "video" },
 ];
 
 export function presetMeta(p: Preset): PresetMeta {

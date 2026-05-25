@@ -12,10 +12,12 @@ WORKFLOWS = Path(__file__).parent.parent.parent / "workflows"
 
 def test_defaults():
     p = TryonPreset.Parameters()
-    assert p.steps == 25
+    assert p.steps == 32
     assert p.cfg == 7.0
     assert p.reference_weight == 0.9
     assert p.auto_mask is True  # tryon defaults ON — auto-mask is the usual path
+    assert p.hires_fix is True
+    assert p.hires_scale == 1.5
 
 
 def test_inject_requires_reference_image():

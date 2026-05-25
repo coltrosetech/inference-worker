@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { Preset } from "@/lib/api";
 
@@ -20,151 +19,58 @@ export interface PresetParams {
   cfg?: number;
   strength?: number;
   seed?: number | null;
-  width?: number;
-  height?: number;
-  // style
-  style_strength?: number;
-  // controlnet
-  controlnet_type?: "canny" | "depth" | "pose" | "lineart" | "scribble";
-  controlnet_strength?: number;
-  // inpaint family
   grow_mask_px?: number;
-  feather_mask_px?: number;
-  two_pass?: boolean;
-  skin_prompt?: string;
-  structural_refiner?: boolean;
-  refiner_strength?: number;
+  reference_weight?: number;
   auto_mask?: boolean;
   auto_mask_categories?: string[];
-  // inpaint_realvis quality stack
-  lora_detail_weight?: number;
-  lora_skin_weight?: number;
-  lora_anatomy_weight?: number;
-  bust_emphasis?: number;
-  face_detailer?: boolean;
-  hand_detailer?: boolean;
-  person_detailer?: boolean;
-  person_detailer_strength?: number;
   hires_fix?: boolean;
   hires_strength?: number;
   hires_scale?: number;
-  preserve_face?: boolean;
-  // edit_premium
-  guidance?: number;
-  // inpaint_premium pose
-  use_pose_guide?: boolean;
-  pose_strength?: number;
-  // tryon
-  reference_weight?: number;
-  // ltx_video
-  num_frames?: 25 | 49 | 97 | 121;
+  // ltx_video (image→video)
+  num_frames?: 25 | 49 | 97 | 121 | 169 | 241;
   fps?: number;
+  width?: number;
+  height?: number;
+  // wan_flf2v (start→end frame video)
+  length?: number;
+  shift?: number;
 }
 
-const SHARED_REALVIS_DEFAULTS = {
-  steps: 32,
-  cfg: 5.5,
-  strength: 0.92,
-  grow_mask_px: 16,
-  feather_mask_px: 16,
-  two_pass: false,
-  skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
-  structural_refiner: false,
-  refiner_strength: 0.3,
-  auto_mask: true,
-  auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
-  lora_detail_weight: 0.3,
-  lora_skin_weight: 0.25,
-  lora_anatomy_weight: 0.3,
-  bust_emphasis: 0.0,
-  face_detailer: false,
-  hand_detailer: true,
-  person_detailer: true,
-  person_detailer_strength: 0.32,
-  hires_fix: true,
-  hires_strength: 0.22,
-  hires_scale: 1.5,
-  preserve_face: true,
-};
-
 export const DEFAULTS_BY_PRESET: Record<Preset, PresetParams> = {
-  edit: { prompt: "", negative_prompt: "", steps: 6, cfg: 1.8, strength: 0.7, width: 1024, height: 1024 },
-  style: { prompt: "", negative_prompt: "", steps: 6, cfg: 1.8, strength: 0.6, style_strength: 0.7 },
-  controlnet: {
-    prompt: "",
-    negative_prompt: "",
-    steps: 6,
-    cfg: 1.8,
-    strength: 0.7,
-    controlnet_type: "canny",
-    controlnet_strength: 0.8,
-  },
-  inpaint: {
-    prompt: "",
-    negative_prompt: "",
-    steps: 6,
-    cfg: 1.8,
-    strength: 0.9,
-    grow_mask_px: 8,
-    two_pass: false,
-    skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
-    structural_refiner: false,
-    refiner_strength: 0.3,
-    auto_mask: false,
-    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
-  },
-  inpaint_sdxl: {
-    prompt: "",
-    negative_prompt: "",
-    steps: 25,
-    cfg: 7.0,
-    strength: 0.9,
-    grow_mask_px: 10,
-    two_pass: false,
-    skin_prompt: "bare natural skin, torso, arms, body, soft even lighting, anatomy",
-    structural_refiner: false,
-    refiner_strength: 0.3,
-    auto_mask: true,
-    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
-  },
-  inpaint_realvis: {
-    prompt: "",
-    negative_prompt: "",
-    ...SHARED_REALVIS_DEFAULTS,
-  },
   tryon: {
-    prompt: "wearing the reference garment, natural lighting, photorealistic",
+    prompt: "wearing an elegant white lace wedding gown, natural lighting, photorealistic",
     negative_prompt: "",
-    steps: 25,
+    steps: 32,
     cfg: 7.0,
-    strength: 0.9,
-    grow_mask_px: 12,
+    strength: 0.92,
+    grow_mask_px: 20,
     reference_weight: 0.9,
     auto_mask: true,
     auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
-  },
-  edit_premium: { prompt: "", negative_prompt: "", steps: 20, cfg: 1.0, guidance: 2.5 },
-  inpaint_premium: {
-    prompt: "",
-    negative_prompt: "",
-    steps: 20,
-    cfg: 1.0,
-    guidance: 30.0,
-    grow_mask_px: 12,
-    auto_mask: true,
-    auto_mask_categories: ["upper_clothes", "pants", "skirt", "dress", "belt"],
-    use_pose_guide: false,
-    pose_strength: 0.5,
+    hires_fix: true,
+    hires_strength: 0.25,
+    hires_scale: 1.5,
   },
   ltx_video: {
-    prompt: "",
+    prompt: "the woman in the wedding gown turns gently, fabric flows, soft cinematic motion",
     negative_prompt: "",
     steps: 8,
-    cfg: 3.0,
-    num_frames: 97,
+    cfg: 1.0,
+    num_frames: 169, // ≈7s @ 24fps
     fps: 24,
-    width: 768,
-    height: 512,
+    width: 1024,
+    height: 576,
+  },
+  wan_flf2v: {
+    prompt: "the woman puts on the jacket with a slow, gentle, smooth natural motion, cinematic, photorealistic, consistent face",
+    negative_prompt: "blurry, distorted, deformed face, morphing face, extra limbs, flickering, jitter, low quality, fast chaotic motion, nudity",
+    length: 49, // 4n+1; ≈4s @ 12fps (soft)
+    fps: 12,
+    steps: 8,
+    cfg: 1.0,
+    shift: 8.0,
+    width: 480,
+    height: 832,
   },
 };
 
@@ -238,9 +144,7 @@ function SliderRow({
         step={step}
         onValueChange={(arr) => onChange(arr[0])}
       />
-      {hint && (
-        <p className="text-[10px] text-muted-foreground">{hint}</p>
-      )}
+      {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -369,336 +273,52 @@ export function PresetForm({
   const u = <K extends keyof PresetParams>(k: K, v: PresetParams[K]) =>
     setParams({ ...params, [k]: v });
 
-  const isInpaint =
-    preset === "inpaint" ||
-    preset === "inpaint_sdxl" ||
-    preset === "inpaint_realvis" ||
-    preset === "inpaint_premium" ||
-    preset === "tryon";
+  if (preset === "wan_flf2v") {
+    return (
+      <div className="space-y-2.5">
+        <Group title="video · start→end" defaultOpen>
+          <p className="text-[10px] text-muted-foreground">
+            <b>input</b> = başlangıç karesi (ceketsiz orijinal), <b>reference</b> = bitiş karesi
+            (giyinik try-on çıktısı). Wan ikisi arasını canlandırır.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <NumberRow
+              label="length (4n+1)"
+              value={params.length}
+              onChange={(v) => u("length", v)}
+              min={5}
+              max={205}
+              step={4}
+              hint={`≈${((params.length || 49) / (params.fps || 12)).toFixed(1)}s @ ${params.fps || 12}fps`}
+            />
+            <NumberRow label="fps" value={params.fps} onChange={(v) => u("fps", v)} min={8} max={30} />
+            <NumberRow label="width (÷16)" value={params.width} onChange={(v) => u("width", v)} min={256} max={1280} step={16} />
+            <NumberRow label="height (÷16)" value={params.height} onChange={(v) => u("height", v)} min={256} max={1280} step={16} />
+          </div>
+        </Group>
 
-  const isRealvis = preset === "inpaint_realvis";
-
-  return (
-    <div className="space-y-2.5">
-      {/* Sampling */}
-      <Group title="sampling" defaultOpen>
-        <div className="grid grid-cols-2 gap-3">
-          <NumberRow
-            label="steps"
-            value={params.steps}
-            onChange={(v) => u("steps", v)}
+        <Group title="sampling">
+          <div className="grid grid-cols-2 gap-3">
+            <NumberRow label="steps" value={params.steps} onChange={(v) => u("steps", v)} min={1} max={60} />
+            <NumberRow label="cfg" value={params.cfg} onChange={(v) => u("cfg", v)} min={0} max={15} step={0.1} />
+          </div>
+          <SliderRow
+            label="shift"
+            value={params.shift}
+            onChange={(v) => u("shift", v)}
             min={1}
-            max={preset === "ltx_video" ? 100 : 60}
-          />
-          <NumberRow
-            label={preset === "edit_premium" || preset === "inpaint_premium" || preset === "ltx_video" ? "cfg" : "cfg"}
-            value={params.cfg}
-            onChange={(v) => u("cfg", v)}
-            min={0}
-            max={20}
-            step={0.1}
-          />
-          {(preset === "edit" ||
-            preset === "style" ||
-            preset === "controlnet" ||
-            preset === "inpaint" ||
-            preset === "inpaint_sdxl" ||
-            preset === "inpaint_realvis" ||
-            preset === "tryon") && (
-            <SliderRow
-              label="strength"
-              value={params.strength}
-              onChange={(v) => u("strength", v)}
-              min={0}
-              max={1}
-            />
-          )}
-          {preset === "edit_premium" && (
-            <SliderRow
-              label="guidance"
-              value={params.guidance}
-              onChange={(v) => u("guidance", v)}
-              min={0}
-              max={10}
-              step={0.1}
-            />
-          )}
-        </div>
-
-        {preset === "inpaint_premium" && (
-          <SliderRow
-            label="guidance (FLUX-Fill)"
-            value={params.guidance}
-            onChange={(v) => u("guidance", v)}
-            min={0}
-            max={100}
+            max={12}
             step={0.5}
-            format={(v) => v.toFixed(1)}
-          />
-        )}
-
-        {preset === "style" && (
-          <SliderRow
-            label="style_strength"
-            value={params.style_strength}
-            onChange={(v) => u("style_strength", v)}
-            min={0}
-            max={1.5}
-          />
-        )}
-
-        {preset === "tryon" && (
-          <SliderRow
-            label="reference_weight"
-            value={params.reference_weight}
-            onChange={(v) => u("reference_weight", v)}
-            min={0}
-            max={2}
-            step={0.05}
-          />
-        )}
-
-        {preset === "controlnet" && (
-          <>
-            <div className="space-y-1">
-              <span className="font-mono text-[11px] text-foreground/85">controlnet_type</span>
-              <Select
-                value={params.controlnet_type}
-                onValueChange={(v) =>
-                  u("controlnet_type", v as NonNullable<PresetParams["controlnet_type"]>)
-                }
-              >
-                <SelectTrigger className="bg-surface-2 font-mono text-[12px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(["canny", "depth", "pose", "lineart", "scribble"] as const).map((t) => (
-                    <SelectItem key={t} value={t} className="font-mono text-[12px]">
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <SliderRow
-              label="controlnet_strength"
-              value={params.controlnet_strength}
-              onChange={(v) => u("controlnet_strength", v)}
-              min={0}
-              max={2}
-            />
-          </>
-        )}
-      </Group>
-
-      {/* Mask + auto-mask */}
-      {isInpaint && (
-        <Group title="mask" defaultOpen={isInpaint}>
-          <ToggleRow
-            label="auto-mask clothing"
-            desc="SegFormer-B2 detects garments — no manual mask required."
-            checked={!!params.auto_mask}
-            onChange={(v) => u("auto_mask", v)}
-          />
-          {params.auto_mask && (
-            <div className="space-y-1.5">
-              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
-                regions to replace
-              </div>
-              <MaskCategoryChips
-                selected={params.auto_mask_categories ?? []}
-                onChange={(next) => u("auto_mask_categories", next)}
-              />
-            </div>
-          )}
-          <SliderRow
-            label="grow_mask_px"
-            value={params.grow_mask_px}
-            onChange={(v) => u("grow_mask_px", Math.round(v))}
-            min={0}
-            max={64}
-            step={1}
-            format={(v) => `${Math.round(v)}px`}
-          />
-          {isRealvis && (
-            <SliderRow
-              label="feather_mask_px"
-              value={params.feather_mask_px}
-              onChange={(v) => u("feather_mask_px", Math.round(v))}
-              min={0}
-              max={64}
-              step={1}
-              hint="soft gradient at the mask edge"
-              format={(v) => `${Math.round(v)}px`}
-            />
-          )}
-        </Group>
-      )}
-
-      {/* RealVis LoRA stack */}
-      {isRealvis && (
-        <Group title="lora stack">
-          <SliderRow
-            label="detail"
-            value={params.lora_detail_weight}
-            onChange={(v) => u("lora_detail_weight", v)}
-            min={0}
-            max={1.5}
-            hint="add-detail-xl — fabric/skin texture"
-          />
-          <SliderRow
-            label="skin"
-            value={params.lora_skin_weight}
-            onChange={(v) => u("lora_skin_weight", v)}
-            min={0}
-            max={1.5}
-            hint="realistic-skin-v5 — pores & natural tone"
-          />
-          <SliderRow
-            label="anatomy"
-            value={params.lora_anatomy_weight}
-            onChange={(v) => u("lora_anatomy_weight", v)}
-            min={0}
-            max={1.5}
-            hint="body-details-xl — proportions"
-          />
-          <SliderRow
-            label="bust_emphasis"
-            value={params.bust_emphasis}
-            onChange={(v) => u("bust_emphasis", v)}
-            min={-1.5}
-            max={1.5}
-            hint="curvy-body-xl · negative reduces, positive enhances"
-            format={(v) => (v >= 0 ? `+${v.toFixed(2)}` : v.toFixed(2))}
+            hint="motion/temporal shift"
           />
         </Group>
-      )}
+      </div>
+    );
+  }
 
-      {/* Detailers + hires */}
-      {isRealvis && (
-        <Group title="detailers · hires">
-          <ToggleRow
-            label="person_detailer"
-            desc="YOLO26n detects body, re-render at 1024px for distant subjects."
-            checked={!!params.person_detailer}
-            onChange={(v) => u("person_detailer", v)}
-          />
-          {params.person_detailer && (
-            <SliderRow
-              label="person_detailer_strength"
-              value={params.person_detailer_strength}
-              onChange={(v) => u("person_detailer_strength", v)}
-              min={0}
-              max={0.8}
-            />
-          )}
-          <ToggleRow
-            label="face_detailer"
-            desc="Re-renders face — turn off if you want the original face preserved."
-            checked={!!params.face_detailer}
-            onChange={(v) => u("face_detailer", v)}
-          />
-          <ToggleRow
-            label="hand_detailer"
-            desc="Detects hands and fixes finger anatomy."
-            checked={!!params.hand_detailer}
-            onChange={(v) => u("hand_detailer", v)}
-          />
-          <ToggleRow
-            label="hires_fix"
-            desc="4× upscale + img2img refine — boosts final resolution."
-            checked={!!params.hires_fix}
-            onChange={(v) => u("hires_fix", v)}
-          />
-          {params.hires_fix && (
-            <>
-              <SliderRow
-                label="hires_strength"
-                value={params.hires_strength}
-                onChange={(v) => u("hires_strength", v)}
-                min={0}
-                max={0.6}
-              />
-              <SliderRow
-                label="hires_scale"
-                value={params.hires_scale}
-                onChange={(v) => u("hires_scale", v)}
-                min={1.0}
-                max={2.0}
-                step={0.05}
-                format={(v) => `${v.toFixed(2)}×`}
-              />
-            </>
-          )}
-          <ToggleRow
-            label="preserve_face"
-            desc="Composites original face/skin/background back onto the hires output."
-            checked={!!params.preserve_face}
-            onChange={(v) => u("preserve_face", v)}
-          />
-        </Group>
-      )}
-
-      {/* Two-pass + structural refiner */}
-      {(preset === "inpaint" || preset === "inpaint_sdxl" || preset === "inpaint_realvis") && (
-        <Group title="advanced">
-          <ToggleRow
-            label="two_pass (undress → redress)"
-            desc="Pass 1 fills skin, pass 2 dresses. Removes original-outfit residual bias."
-            checked={!!params.two_pass}
-            onChange={(v) => u("two_pass", v)}
-          />
-          {params.two_pass && (
-            <div className="space-y-1.5">
-              <span className="font-mono text-[11px] text-foreground/85">skin_prompt (pass 1)</span>
-              <Textarea
-                value={params.skin_prompt ?? ""}
-                onChange={(e) => u("skin_prompt", e.target.value)}
-                rows={2}
-                className="bg-surface-2 font-mono text-[12px]"
-              />
-            </div>
-          )}
-          <ToggleRow
-            label="structural_refiner"
-            desc="Final unsharp pass — sharpens edges, may amplify noise."
-            checked={!!params.structural_refiner}
-            onChange={(v) => u("structural_refiner", v)}
-          />
-          {params.structural_refiner && (
-            <SliderRow
-              label="refiner_strength"
-              value={params.refiner_strength}
-              onChange={(v) => u("refiner_strength", v)}
-              min={0}
-              max={1}
-            />
-          )}
-        </Group>
-      )}
-
-      {preset === "inpaint_premium" && (
-        <Group title="pose guard">
-          <ToggleRow
-            label="use_pose_guide (ControlNet)"
-            desc="Locks body proportions using OpenPose, recommended for radical swaps."
-            checked={!!params.use_pose_guide}
-            onChange={(v) => u("use_pose_guide", v)}
-          />
-          {params.use_pose_guide && (
-            <SliderRow
-              label="pose_strength"
-              value={params.pose_strength}
-              onChange={(v) => u("pose_strength", v)}
-              min={0}
-              max={1.5}
-              step={0.05}
-            />
-          )}
-        </Group>
-      )}
-
-      {preset === "ltx_video" && (
+  if (preset === "ltx_video") {
+    return (
+      <div className="space-y-2.5">
         <Group title="video" defaultOpen>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -713,57 +333,110 @@ export function PresetForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[25, 49, 97, 121].map((n) => (
+                  {[25, 49, 97, 121, 169, 241].map((n) => (
                     <SelectItem key={n} value={String(n)} className="font-mono">
-                      {n}
+                      {n} ({(n / (params.fps || 24)).toFixed(1)}s)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <NumberRow label="fps" value={params.fps} onChange={(v) => u("fps", v)} min={8} max={60} />
-            <NumberRow
-              label="width"
-              value={params.width}
-              onChange={(v) => u("width", v)}
-              min={256}
-              max={1216}
-              step={16}
-            />
-            <NumberRow
-              label="height"
-              value={params.height}
-              onChange={(v) => u("height", v)}
-              min={256}
-              max={704}
-              step={16}
-            />
+            <NumberRow label="width" value={params.width} onChange={(v) => u("width", v)} min={256} max={1216} step={32} />
+            <NumberRow label="height" value={params.height} onChange={(v) => u("height", v)} min={256} max={1216} step={32} />
           </div>
+          <p className="text-[10px] text-muted-foreground">
+            Girdi olarak try-on çıktısını yükle — LTX-Video onu canlandırır.
+          </p>
         </Group>
-      )}
 
-      {(preset === "edit" || preset === "style" || preset === "controlnet") && (
-        <Group title="size">
+        <Group title="sampling">
           <div className="grid grid-cols-2 gap-3">
-            <NumberRow
-              label="width"
-              value={params.width}
-              onChange={(v) => u("width", v)}
-              min={64}
-              max={4096}
-              step={16}
-            />
-            <NumberRow
-              label="height"
-              value={params.height}
-              onChange={(v) => u("height", v)}
-              min={64}
-              max={4096}
-              step={16}
-            />
+            <NumberRow label="steps" value={params.steps} onChange={(v) => u("steps", v)} min={1} max={100} />
+            <NumberRow label="cfg" value={params.cfg} onChange={(v) => u("cfg", v)} min={0} max={20} step={0.1} />
           </div>
         </Group>
-      )}
+      </div>
+    );
+  }
+
+  // tryon
+  return (
+    <div className="space-y-2.5">
+      <Group title="sampling" defaultOpen>
+        <div className="grid grid-cols-2 gap-3">
+          <NumberRow label="steps" value={params.steps} onChange={(v) => u("steps", v)} min={1} max={60} />
+          <NumberRow label="cfg" value={params.cfg} onChange={(v) => u("cfg", v)} min={0} max={20} step={0.1} />
+          <SliderRow label="strength" value={params.strength} onChange={(v) => u("strength", v)} min={0} max={1} />
+          <SliderRow
+            label="reference_weight"
+            value={params.reference_weight}
+            onChange={(v) => u("reference_weight", v)}
+            min={0}
+            max={2}
+            step={0.05}
+            hint="how strongly the result follows the garment reference (IP-Adapter)"
+          />
+        </div>
+      </Group>
+
+      <Group title="mask" defaultOpen>
+        <ToggleRow
+          label="auto-mask clothing"
+          desc="SegFormer-B2 detects the current outfit — no manual mask required."
+          checked={!!params.auto_mask}
+          onChange={(v) => u("auto_mask", v)}
+        />
+        {params.auto_mask && (
+          <div className="space-y-1.5">
+            <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
+              regions to replace
+            </div>
+            <MaskCategoryChips
+              selected={params.auto_mask_categories ?? []}
+              onChange={(next) => u("auto_mask_categories", next)}
+            />
+          </div>
+        )}
+        <SliderRow
+          label="grow_mask_px"
+          value={params.grow_mask_px}
+          onChange={(v) => u("grow_mask_px", Math.round(v))}
+          min={0}
+          max={64}
+          step={1}
+          format={(v) => `${Math.round(v)}px`}
+        />
+      </Group>
+
+      <Group title="quality · hires-fix" defaultOpen>
+        <ToggleRow
+          label="hires_fix"
+          desc="4×-UltraSharp upscale + low-denoise resample — sharpens fabric/detail, keeps identity."
+          checked={!!params.hires_fix}
+          onChange={(v) => u("hires_fix", v)}
+        />
+        {params.hires_fix && (
+          <>
+            <SliderRow
+              label="hires_strength"
+              value={params.hires_strength}
+              onChange={(v) => u("hires_strength", v)}
+              min={0}
+              max={0.6}
+            />
+            <SliderRow
+              label="hires_scale"
+              value={params.hires_scale}
+              onChange={(v) => u("hires_scale", v)}
+              min={1.0}
+              max={2.0}
+              step={0.05}
+              format={(v) => `${v.toFixed(2)}×`}
+            />
+          </>
+        )}
+      </Group>
     </div>
   );
 }

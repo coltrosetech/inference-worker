@@ -17,13 +17,14 @@ def _client(monkeypatch, tmp_path):
     return TestClient(app)
 
 
-def _payload(job_id="j1", preset="edit"):
+def _payload(job_id="j1", preset="tryon"):
     return {
         "job_id": job_id,
         "preset": preset,
-        "prompt": "a cat",
+        "prompt": "wearing an elegant white wedding gown",
         "input_image_url": "https://s/in.png",
-        "parameters": {"steps": 6, "cfg": 1.8, "width": 512, "height": 512},
+        "reference_image_url": "https://s/garment.png",
+        "parameters": {"steps": 6, "cfg": 7.0, "auto_mask": True},
         "callback_url": "https://b/cb",
         "upload_url": "https://s/out",
         "upload_method": "PUT",
@@ -88,10 +89,22 @@ def test_generate_queue_full_returns_429(monkeypatch, tmp_path):
     assert "retry-after" in [k.lower() for k in r2.headers.keys()]
 
 
-def test_generate_inpaint_without_mask_or_automask_returns_400(monkeypatch, tmp_path):
+def test_generate_tryon_without_reference_returns_400(monkeypatch, tmp_path):
     c = _client(monkeypatch, tmp_path)
-    p = _payload(job_id="jm", preset="inpaint")
-    p["prompt"] = "sky"
+    p = _payload(job_id="jr")
+    p.pop("reference_image_url")
+    r = c.post("/v1/generate", json=p, headers={
+        "Authorization": f"Bearer {'k'*32}",
+        "Idempotency-Key": "jr",
+    })
+    assert r.status_code == 400
+    assert "reference_image_url" in r.text
+
+
+def test_generate_tryon_without_mask_or_automask_returns_400(monkeypatch, tmp_path):
+    c = _client(monkeypatch, tmp_path)
+    p = _payload(job_id="jm")
+    p["parameters"] = {"steps": 6, "cfg": 7.0}  # no auto_mask, no mask url
     r = c.post("/v1/generate", json=p, headers={
         "Authorization": f"Bearer {'k'*32}",
         "Idempotency-Key": "jm",
@@ -100,12 +113,11 @@ def test_generate_inpaint_without_mask_or_automask_returns_400(monkeypatch, tmp_
     assert "mask_image_url" in r.text or "auto_mask" in r.text
 
 
-def test_generate_inpaint_with_automask_no_mask_url_returns_202(monkeypatch, tmp_path):
+def test_generate_tryon_with_automask_no_mask_url_returns_202(monkeypatch, tmp_path):
     c = _client(monkeypatch, tmp_path)
-    p = _payload(job_id="ja", preset="inpaint")
-    p["prompt"] = "red velvet dress"
+    p = _payload(job_id="ja")
     p["parameters"] = {
-        "steps": 6, "cfg": 1.8,
+        "steps": 6, "cfg": 7.0,
         "auto_mask": True,
         "auto_mask_categories": ["upper_clothes", "dress"],
     }

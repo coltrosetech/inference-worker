@@ -12,8 +12,8 @@ import { GenerateButton } from "@/components/GenerateButton";
 import { submitGenerate, type JobState, type Preset } from "@/lib/api";
 
 export default function App() {
-  const [preset, setPreset] = useState<Preset>("inpaint_realvis");
-  const [params, setParams] = useState<PresetParams>(DEFAULTS_BY_PRESET.inpaint_realvis);
+  const [preset, setPreset] = useState<Preset>("tryon");
+  const [params, setParams] = useState<PresetParams>(DEFAULTS_BY_PRESET.tryon);
 
   const [inputName, setInputName] = useState<string | null>(null);
   const [inputBucket, setInputBucket] = useState<[number, number] | null>(null);
@@ -31,24 +31,35 @@ export default function App() {
 
   const meta = useMemo(() => presetMeta(preset), [preset]);
 
-  // Note: presetMeta only returns label/desc; needs flags come from a separate
-  // table here for backwards-compatibility with the old PRESETS list.
-  const presetReq = useMemo(() => {
-    const needsRef = preset === "style" || preset === "tryon";
-    const needsMask =
-      preset === "inpaint" ||
-      preset === "inpaint_sdxl" ||
-      preset === "inpaint_realvis" ||
-      preset === "inpaint_premium" ||
-      preset === "tryon";
-    return { needsRef, needsMask };
-  }, [preset]);
+  // Try-on needs garment reference + clothing mask (auto-mask satisfies it);
+  // ltx_video only animates the input image; wan_flf2v needs an END frame.
+  const presetReq =
+    preset === "ltx_video"
+      ? { needsRef: false, needsMask: false }
+      : preset === "wan_flf2v"
+      ? { needsRef: true, needsMask: false }
+      : { needsRef: true, needsMask: true };
 
   const changePreset = (p: Preset) => {
     setPreset(p);
     setParams(DEFAULTS_BY_PRESET[p]);
     setSubmitErr(null);
   };
+
+  // LTX-Video: match output aspect to the uploaded image (long side ~1024, /32).
+  useEffect(() => {
+    if (preset !== "ltx_video" || !inputBucket) return;
+    const [iw, ih] = inputBucket;
+    const long = 1024;
+    const snap = (n: number) => Math.max(256, Math.min(1216, Math.round(n / 32) * 32));
+    const [w, h] = iw >= ih ? [long, (long * ih) / iw] : [(long * iw) / ih, long];
+    const nw = snap(w);
+    const nh = snap(h);
+    if (params.width !== nw || params.height !== nh) {
+      setParams((p) => ({ ...p, width: nw, height: nh }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset, inputBucket]);
 
   const maskRequired = presetReq.needsMask && !params.auto_mask;
   const canSubmit =
@@ -66,7 +77,7 @@ export default function App() {
       const { prompt, negative_prompt, seed, ...rest } = params;
       const parameters: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(rest)) {
-        if (v !== undefined && v !== null && v !== "") parameters[k] = v;
+        if (v !== undefined && v !== null) parameters[k] = v;
       }
       if (seed !== null && seed !== undefined && Number.isFinite(seed)) {
         parameters.seed = seed;
@@ -79,7 +90,7 @@ export default function App() {
         mask_image_name: maskName ?? undefined,
         reference_image_name: refName ?? undefined,
         parameters,
-        timeout_sec: preset === "ltx_video" ? 600 : 300,
+        timeout_sec: preset === "wan_flf2v" ? 1200 : preset === "ltx_video" ? 600 : 300,
       });
       if (r.status === "failed") {
         setSubmitErr("worker rejected the request");
@@ -154,7 +165,7 @@ export default function App() {
               {presetReq.needsMask && !params.auto_mask && (
                 <InputCard
                   label="mask"
-                  hint="white = inpaint area, black = keep"
+                  hint="white = garment area to replace, black = keep"
                   uploadedName={maskName}
                   bucket={maskBucket}
                   onUploaded={(n, b) => {
